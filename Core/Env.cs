@@ -27,7 +27,7 @@ internal static class Env
 
         return Directory.GetDirectories(DotfilesDir)
             .Select(Path.GetFileName)
-            .Where(name => name is not null && name != ".git" && name != "system")
+            .Where(name => name is not null && name != "system" && !name.StartsWith('.'))
             .Cast<string>()
             .OrderBy(n => n)
             .ToArray();

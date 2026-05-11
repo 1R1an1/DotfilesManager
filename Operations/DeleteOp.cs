@@ -1,6 +1,5 @@
 using DotfilesManager.Core;
 using DotfilesManager.UI;
-using static DotfilesManager.UI.Colors;
 
 namespace DotfilesManager.Operations;
 
@@ -78,7 +77,7 @@ internal static class DeleteOp
                 string pkgDir = Path.Combine(Env.DotfilesDir, package);
                 foreach (string src in Directory.EnumerateFiles(pkgDir, "*", SearchOption.AllDirectories))
                 {
-                    string rel  = Path.GetRelativePath(pkgDir, src);
+                    string rel = Path.GetRelativePath(pkgDir, src);
                     string dest = Path.Combine(Env.HomeDir, rel);
                     Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                     try
@@ -123,7 +122,7 @@ internal static class DeleteOp
             return;
         }
 
-        bool exists   = File.Exists(path) || Directory.Exists(path);
+        bool exists = File.Exists(path) || Directory.Exists(path);
         bool isSymlink = exists && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
         if (!isSymlink)
@@ -164,7 +163,7 @@ internal static class DeleteOp
             case 1:
                 if (!Menu.Confirm($"¿Restaurar '{repoFile}' a '{path}' y eliminar el symlink?")) return;
                 bool removed = Shell.SudoRemove(path);
-                bool copied  = repoFile is not null && Shell.SudoCopy(repoFile, path);
+                bool copied = repoFile is not null && Shell.SudoCopy(repoFile, path);
                 if (removed && copied)
                     summary.TrackOk($"Symlink eliminado y archivo restaurado: {path}");
                 else
