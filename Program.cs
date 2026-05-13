@@ -1,8 +1,11 @@
+using DotfilesManager.Core;
 using DotfilesManager.Operations;
 using DotfilesManager.UI;
 
 // Asegurar que la terminal soporte UTF-8
 Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+Env.LoadOrInit();
 
 var summary = new Summary();
 

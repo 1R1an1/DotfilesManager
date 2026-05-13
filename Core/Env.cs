@@ -1,35 +1,73 @@
+using System.Text.Json;
+
 namespace DotfilesManager.Core;
 
 internal static class Env
 {
-    // Directorio del repo de dotfiles: mismo directorio que el ejecutable
-    public static readonly string DotfilesDir = Directory.GetCurrentDirectory();
-
-    public static readonly string SystemDir = Path.Combine(DotfilesDir, "system");
     public static readonly string HomeDir = GetRealHome();
+
+    private static readonly string ConfigFile =
+        Path.Combine(HomeDir, ".config", "dotfiles-manager", "config.json");
+
+    public static string DotfilesDir { get; private set; } = "";
+    public static string SystemDir => Path.Combine(DotfilesDir, "system");
+    public static string BackupDir =>
+            Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+
+    public static void LoadOrInit()
+    {
+        if (File.Exists(ConfigFile))
+        {
+            var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(ConfigFile));
+            if (cfg?.DotfilesDir is not null && Directory.Exists(cfg.DotfilesDir))
+            {
+                DotfilesDir = cfg.DotfilesDir;
+                return;
+            }
+        }
+
+        // No existe o la ruta guardada ya no existe — pedir al usuario
+        Console.Clear();
+        Console.WriteLine();
+        Console.WriteLine("  Ruta del repo de dotfiles: ");
+        Console.Write("  > ");
+        string? input = Console.ReadLine()?.Trim();
+        string path = input?.StartsWith("~/") == true
+            ? Path.Combine(HomeDir, input[2..])
+            : input ?? "";
+
+        if (!Directory.Exists(path))
+        {
+            Console.WriteLine("  El directorio no existe. Saliendo.");
+            Environment.Exit(1);
+        }
+
+        DotfilesDir = path;
+        if (!Directory.Exists(Path.GetDirectoryName(ConfigFile))) Directory.CreateDirectory(Path.GetDirectoryName(ConfigFile));
+        File.WriteAllText(ConfigFile, JsonSerializer.Serialize(new Config { DotfilesDir = path }));
+    }
+
+    public static string[] GetPackages() =>
+        Directory.Exists(DotfilesDir)
+            ? Directory.GetDirectories(DotfilesDir)
+                .Select(Path.GetFileName)
+                .Where(n => n is not null && !n.StartsWith('.') && n != "system")
+                .Cast<string>()
+                .OrderBy(n => n)
+                .ToArray()
+            : [];
 
     private static string GetRealHome()
     {
         string? sudoUser = Environment.GetEnvironmentVariable("SUDO_USER");
         if (!string.IsNullOrEmpty(sudoUser))
             return Path.Combine("/home", sudoUser);
-
         return Environment.GetEnvironmentVariable("HOME")
             ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     }
-    public static string BackupDir =>
-        Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
 
-    // Devuelve todos los paquetes stow (subdirectorios, excluyendo .git y system)
-    public static string[] GetPackages()
+    private sealed class Config
     {
-        if (!Directory.Exists(DotfilesDir)) return [];
-
-        return Directory.GetDirectories(DotfilesDir)
-            .Select(Path.GetFileName)
-            .Where(name => name is not null && name != "system" && !name.StartsWith('.'))
-            .Cast<string>()
-            .OrderBy(n => n)
-            .ToArray();
+        public string? DotfilesDir { get; set; }
     }
 }
