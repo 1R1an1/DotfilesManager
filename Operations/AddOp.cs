@@ -46,8 +46,8 @@ internal static class AddOp
         }
 
         // Seleccionar o crear paquete
-        string[] packages   = Env.GetPackages();
-        string[] pkgOptions = [.. packages, "── Crear paquete nuevo ──"];
+        string[] packages = Env.GetPackages();
+        string[] pkgOptions = ["── Crear paquete nuevo ──", .. packages];
         int pkgIdx = Menu.SelectOne("Seleccioná el paquete destino", pkgOptions);
 
         Console.Clear();
@@ -70,8 +70,8 @@ internal static class AddOp
             package = packages[pkgIdx];
         }
 
-        string rel           = Path.GetRelativePath(Env.HomeDir, path);
-        string destInRepo    = Path.Combine(Env.DotfilesDir, package, rel);
+        string rel = Path.GetRelativePath(Env.HomeDir, path);
+        string destInRepo = Path.Combine(Env.DotfilesDir, package, rel);
 
         Console.WriteLine();
         Printer.Info($"Moviendo a: {destInRepo}");
@@ -112,7 +112,7 @@ internal static class AddOp
         string? path = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(path)) { Printer.Error("Ruta vacía."); return; }
 
-        if (!File.Exists(path))
+        if (!File.Exists(path) && !Directory.Exists(path))
         {
             Printer.Error($"No existe: {path}");
             return;
@@ -147,7 +147,7 @@ internal static class AddOp
         Directory.CreateDirectory(dest);
         foreach (string file in Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories))
         {
-            string rel     = Path.GetRelativePath(src, file);
+            string rel = Path.GetRelativePath(src, file);
             string destFile = Path.Combine(dest, rel);
             Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
             File.Move(file, destFile);

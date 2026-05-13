@@ -10,8 +10,8 @@ internal static class Shell
         var psi = new ProcessStartInfo(command, args)
         {
             RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            UseShellExecute        = false,
+            RedirectStandardError = true,
+            UseShellExecute = false,
         };
 
         using var proc = Process.Start(psi)
@@ -51,10 +51,11 @@ internal static class Shell
     {
         string dir = Path.GetDirectoryName(dest) ?? "/";
         Run("sudo", $"mkdir -p \"{dir}\"");
-        var (code, _) = Run("sudo", $"mv \"{source}\" \"{dest}\"");
+        var (code, stderr) = Run("sudo", $"mv \"{source}\" \"{dest}\"");
+        if (code != 0) Console.WriteLine($"mv error: {stderr}");
         if (code != 0) return false;
         string user = Environment.UserName;
-        Run("sudo", $"chown {user}:{user} \"{dest}\"");
+        Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
         return true;
     }
 
@@ -72,6 +73,17 @@ internal static class Shell
         if (code != 0) return false;
         string user = Environment.UserName;
         Run("sudo", $"chown {user}:{user} \"{dest}\"");
+        return true;
+    }
+
+    public static bool SudoCopyDir(string source, string dest)
+    {
+        string dir = Path.GetDirectoryName(dest) ?? "/";
+        Run("sudo", $"mkdir -p \"{dir}\"");
+        var (code, _) = Run("sudo", $"cp -r \"{source}\" \"{dest}\"");
+        if (code != 0) return false;
+        string user = Environment.UserName;
+        Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
         return true;
     }
 }

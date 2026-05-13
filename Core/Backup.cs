@@ -13,7 +13,7 @@ internal static class Backup
         int count = 0;
         foreach (string src in Directory.EnumerateFiles(srcDir, "*", SearchOption.AllDirectories))
         {
-            string rel  = Path.GetRelativePath(srcDir, src);
+            string rel = Path.GetRelativePath(srcDir, src);
             string dest = Path.Combine(Env.HomeDir, rel);
 
             if (File.Exists(dest) && !IsSymlink(dest))
@@ -32,7 +32,7 @@ internal static class Backup
     // Backup de un archivo en home
     public static bool BackupHomeFile(string absolutePath, string backupDir)
     {
-        string rel  = Path.GetRelativePath(Env.HomeDir, absolutePath);
+        string rel = Path.GetRelativePath(Env.HomeDir, absolutePath);
         string dest = Path.Combine(backupDir, "home", rel);
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         try
@@ -52,7 +52,13 @@ internal static class Backup
     public static bool BackupSystemFile(string absolutePath, string backupDir)
     {
         string dest = Path.Combine(backupDir, "system", absolutePath.TrimStart('/'));
-        bool ok = Shell.SudoCopy(absolutePath, dest);
+        bool ok;
+
+        if (Directory.Exists(absolutePath))
+            ok = Shell.SudoCopyDir(absolutePath, dest);
+        else
+            ok = Shell.SudoCopy(absolutePath, dest);
+
         if (ok)
             Printer.Info($"Backup de sistema: {absolutePath} → {dest}");
         else

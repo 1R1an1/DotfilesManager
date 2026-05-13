@@ -123,7 +123,7 @@ internal static class DeleteOp
         }
 
         bool exists = File.Exists(path) || Directory.Exists(path);
-        bool isSymlink = exists && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        bool isSymlink = exists && new FileInfo(path).Attributes.HasFlag(FileAttributes.ReparsePoint);
 
         if (!isSymlink)
         {
@@ -163,7 +163,11 @@ internal static class DeleteOp
             case 1:
                 if (!Menu.Confirm($"¿Restaurar '{repoFile}' a '{path}' y eliminar el symlink?")) return;
                 bool removed = Shell.SudoRemove(path);
-                bool copied = repoFile is not null && Shell.SudoCopy(repoFile, path);
+                bool copied = repoFile is not null && (
+                                Directory.Exists(repoFile)
+                                    ? Shell.SudoCopyDir(repoFile, path)
+                                    : Shell.SudoCopy(repoFile, path)
+                            );
                 if (removed && copied)
                     summary.TrackOk($"Symlink eliminado y archivo restaurado: {path}");
                 else
