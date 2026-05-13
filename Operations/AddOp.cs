@@ -80,7 +80,9 @@ internal static class AddOp
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
         string backupDir = Env.BackupDir;
-        Backup.BackupHomeFile(path, backupDir);
+        if (!Backup.BackupHomeFile(path, backupDir, summary))
+            return;
+
 
         Directory.CreateDirectory(Path.GetDirectoryName(destInRepo)!);
         try
@@ -126,7 +128,8 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        Backup.BackupSystemFile(path, Env.BackupDir);
+        if (!Backup.BackupSystemFile(path, Env.BackupDir))
+            return;
 
         if (!Shell.SudoMove(path, destInRepo))
         {

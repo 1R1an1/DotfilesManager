@@ -54,8 +54,8 @@ internal static class Shell
         var (code, stderr) = Run("sudo", $"mv \"{source}\" \"{dest}\"");
         if (code != 0) Console.WriteLine($"mv error: {stderr}");
         if (code != 0) return false;
-        string user = Environment.UserName;
-        Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
+        //string user = Environment.UserName;
+        //Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
         return true;
     }
 
@@ -69,10 +69,10 @@ internal static class Shell
     {
         string dir = Path.GetDirectoryName(dest) ?? "/";
         Run("sudo", $"mkdir -p \"{dir}\"");
-        var (code, _) = Run("sudo", $"cp \"{source}\" \"{dest}\"");
+        var (code, _) = Run("sudo", $"cp --preserve=all \"{source}\" \"{dest}\"");
         if (code != 0) return false;
-        string user = Environment.UserName;
-        Run("sudo", $"chown {user}:{user} \"{dest}\"");
+        //string user = Environment.UserName;
+        //Run("sudo", $"chown {user}:{user} \"{dest}\"");
         return true;
     }
 
@@ -80,10 +80,10 @@ internal static class Shell
     {
         string dir = Path.GetDirectoryName(dest) ?? "/";
         Run("sudo", $"mkdir -p \"{dir}\"");
-        var (code, _) = Run("sudo", $"cp -r \"{source}\" \"{dest}\"");
+        var (code, _) = Run("sudo", $"cp -a \"{source}\" \"{dest}\"");
         if (code != 0) return false;
-        string user = Environment.UserName;
-        Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
+        //string user = Environment.UserName;
+        //Run("sudo", $"chown -R {user}:{user} \"{dest}\"");
         return true;
     }
 }

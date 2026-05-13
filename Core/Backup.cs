@@ -30,7 +30,7 @@ internal static class Backup
     }
 
     // Backup de un archivo en home
-    public static bool BackupHomeFile(string absolutePath, string backupDir)
+    public static bool BackupHomeFile(string absolutePath, string backupDir, Summary? summary = null)
     {
         string rel = Path.GetRelativePath(Env.HomeDir, absolutePath);
         string dest = Path.Combine(backupDir, "home", rel);
@@ -43,13 +43,18 @@ internal static class Backup
         }
         catch (Exception ex)
         {
-            Printer.Warn($"No se pudo hacer backup de: {absolutePath} ({ex.Message})");
+            var str = $"No se pudo hacer backup de: {absolutePath} ({ex.Message})";
+            if (summary != null)
+                summary.TrackErr(str);
+            else
+                Printer.Warn(str);
+
             return false;
         }
     }
 
     // Backup de un archivo de sistema (usa sudo cp)
-    public static bool BackupSystemFile(string absolutePath, string backupDir)
+    public static bool BackupSystemFile(string absolutePath, string backupDir, Summary? summary = null)
     {
         string dest = Path.Combine(backupDir, "system", absolutePath.TrimStart('/'));
         bool ok;
@@ -62,7 +67,13 @@ internal static class Backup
         if (ok)
             Printer.Info($"Backup de sistema: {absolutePath} → {dest}");
         else
-            Printer.Warn($"No se pudo hacer backup de: {absolutePath}");
+        {
+            var str = $"No se pudo hacer backup de: {absolutePath}";
+            if (summary != null)
+                summary.TrackErr(str);
+            else
+                Printer.Warn(str);
+        }
         return ok;
     }
 
