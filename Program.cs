@@ -15,6 +15,7 @@ string[] mainOptions =
     "Ver estado de symlinks",
     "Borrar symlinks",
     "Agregar archivo al repo",
+    "Ejecutar script"
 ];
 
 while (true)
@@ -37,6 +38,9 @@ while (true)
             break;
         case 3:
             AddOp.Run(summary);
+            break;
+        case 4:
+            ExecuteOp.Run(summary);
             break;
     }
 }

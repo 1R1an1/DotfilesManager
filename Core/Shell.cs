@@ -22,9 +22,24 @@ internal static class Shell
         return (proc.ExitCode, stderr);
     }
 
+    public static int RunVisible(string command, string args)
+    {
+        var psi = new ProcessStartInfo(command, args)
+        {
+            UseShellExecute = false,
+        };
+
+        using var proc = Process.Start(psi)!;
+        proc.WaitForExit();
+        return proc.ExitCode;
+    }
+
     /// Ejecuta via /bin/bash -c "…"
-    public static (int ExitCode, string Stderr) Bash(string script)
+    public static (int ExitCode, string Stderr) BashC(string script)
         => Run("/bin/bash", $"-c \"{script.Replace("\"", "\\\"")}\"");
+
+    public static int Bash(string script)
+        => RunVisible("/bin/bash", $"\"{script.Replace("\"", "\\\"")}\"");
 
     public static bool Stow(string dotfilesDir, string homeDir, string package, bool adopt = false)
     {

@@ -11,6 +11,7 @@ internal static class Env
 
     public static string DotfilesDir { get; private set; } = "";
     public static string SystemDir => Path.Combine(DotfilesDir, "system");
+    public static string ScriptsDir => Path.Combine(Env.DotfilesDir, ".scripts");
     public static string BackupDir =>
             Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
 
