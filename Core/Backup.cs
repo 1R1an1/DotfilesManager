@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DotfilesManager.UI;
 
 namespace DotfilesManager.Core;
@@ -5,42 +6,61 @@ namespace DotfilesManager.Core;
 internal static class Backup
 {
     // Hace backup de los archivos reales (no symlinks) que stow va a reemplazar.
-    // Solo copia archivos que existen en home Y no son symlinks,
-    // porque los symlinks no tienen contenido propio que perder.
-    public static void BackupPackage(string package, string backupDir)
+    // Ahora usa un único comando cp --parents para copiar todo de una vez,
+    // en lugar de lanzar un proceso por cada archivo.
+    public static string[] BackupPackage(string package, string backupDir)
     {
         string srcDir = Path.Combine(Env.DotfilesDir, package);
-        if (!Directory.Exists(srcDir)) return;
+        if (!Directory.Exists(srcDir)) return [];
 
-        int count = 0;
+        // Paso 1: Elegir qué archivos necesitan backup
+        List<string> relatives = new();
         foreach (string src in Directory.EnumerateFiles(srcDir, "*", SearchOption.AllDirectories))
         {
-            string rel  = Path.GetRelativePath(srcDir, src);
+            string rel = Path.GetRelativePath(srcDir, src);
             string dest = Path.Combine(Env.HomeDir, rel);
 
             if (File.Exists(dest) && !IsSymlink(dest))
-            {
-                string bkp = Path.Combine(backupDir, package, rel);
-                Directory.CreateDirectory(Path.GetDirectoryName(bkp)!);
-                File.Copy(dest, bkp, overwrite: true);
-                count++;
-            }
+                relatives.Add(rel);
         }
 
-        if (count > 0)
-            Printer.Info($"Backup de '{package}': {count} archivo(s) → {backupDir}");
+        if (relatives.Count == 0) return [];
+
+        // Paso 2: Copiar todos juntos con un solo cp
+        string destDir = Path.Combine(backupDir, package);
+        Directory.CreateDirectory(destDir);
+
+        // Unimos todas las rutas relativas en un solo string
+        string fileArgs = string.Join(" ", relatives.Select(r => $"\"{r}\""));
+
+        // Ejecutamos cp desde el home para que las rutas relativas funcionen
+        var (code, stderr) = Shell.Run(Env.HomeDir, "cp", $"-a --parents {fileArgs} \"{destDir}\"");
+
+        if (code != 0)
+        {
+            Printer.Warn($"Error en backup de '{package}': {stderr}");
+            return [];
+        }
+
+        // Paso 3: Devolver las rutas completas
+        string[] filesBackedup = relatives
+            .Select(r => Path.Combine(Env.HomeDir, r))
+            .ToArray();
+
+        Printer.Info($"Backup de '{package}': {relatives.Count} archivo(s) → {destDir}");
+        return filesBackedup;
     }
 
     // Hace backup de un archivo en home. Si falla, registra el error en summary
     // (si se pasó uno) o imprime un warning.
     public static bool BackupHomeFile(string absolutePath, string backupDir, Summary? summary = null)
     {
-        string rel  = Path.GetRelativePath(Env.HomeDir, absolutePath);
+        string rel = Path.GetRelativePath(Env.HomeDir, absolutePath);
         string dest = Path.Combine(backupDir, "home", rel);
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         try
         {
-            File.Copy(absolutePath, dest, overwrite: true);
+            Shell.Copy(absolutePath, dest);
             Printer.Info($"Backup: {absolutePath} → {dest}");
             return true;
         }
@@ -48,7 +68,7 @@ internal static class Backup
         {
             string msg = $"No se pudo hacer backup de: {absolutePath} ({ex.Message})";
             if (summary != null) summary.TrackErr(msg);
-            else                 Printer.Warn(msg);
+            else Printer.Warn(msg);
             return false;
         }
     }
@@ -69,7 +89,7 @@ internal static class Backup
         {
             string msg = $"No se pudo hacer backup de: {absolutePath}";
             if (summary != null) summary.TrackErr(msg);
-            else                 Printer.Warn(msg);
+            else Printer.Warn(msg);
         }
         return ok;
     }

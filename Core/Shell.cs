@@ -24,6 +24,26 @@ internal static class Shell
         return (proc.ExitCode, stderr);
     }
 
+    // Ejecuta un comando desde un directorio específico.
+    // Útil cuando el comando necesita usar rutas relativas.
+    public static (int ExitCode, string Stderr) Run(string workingDir, string command, string args)
+    {
+        var psi = new ProcessStartInfo(command, args)
+        {
+            WorkingDirectory = workingDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        using var proc = Process.Start(psi)
+            ?? throw new InvalidOperationException($"No se pudo iniciar: {command}");
+
+        string stderr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit();
+        return (proc.ExitCode, stderr);
+    }
+
     // Ejecuta un comando mostrando el output en pantalla en tiempo real.
     // Úsalo para comandos largos o interactivos donde el usuario necesita ver el progreso.
     public static int RunVisible(string command, string args)
@@ -108,6 +128,18 @@ internal static class Shell
     {
         Run("sudo", $"mkdir -p \"{Path.GetDirectoryName(dest) ?? "/"}\"");
         var (code, _) = Run("sudo", $"cp --preserve=all \"{source}\" \"{dest}\"");
+        return code == 0;
+    }
+
+    //Copia un archivo preservando todos sus atributos
+    public static bool Copy(string source, string dest)
+        => Run("cp", $"-f --preserve=all \"{source}\" \"{dest}\"").ExitCode == 0;
+
+    //Copia una carpeta preservando todos sus atributos
+    public static bool CopyDir(string source, string dest)
+    {
+        Run("mkdir", $"-p \"{dest}\"");
+        var (code, _) = Run("cp", $"-a \"{source}\"/. \"{dest}\"");
         return code == 0;
     }
 

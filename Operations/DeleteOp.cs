@@ -18,7 +18,7 @@ internal static class DeleteOp
         Printer.Header("Borrar symlinks");
 
         if (choice == 0) DeletePackage(summary);
-        else             DeleteSystemSymlink(summary);
+        else DeleteSystemSymlink(summary);
 
         summary.Print();
         Printer.PressEnterToContinue();
@@ -38,9 +38,9 @@ internal static class DeleteOp
         string[] actions =
         [
             "Solo eliminar symlinks (archivos quedan en el repo)",
-            "Restaurar archivos a su ubicación original (y eliminar symlinks)",
-            "Eliminar todo (symlinks + archivos del repo)",
-        ];
+        "Restaurar archivos a su ubicación original (y eliminar symlinks)",
+        "Eliminar todo (symlinks + archivos del repo)",
+    ];
 
         int actionIdx = Menu.SelectOne($"¿Qué querés hacer con '{package}'?", actions);
 
@@ -63,6 +63,13 @@ internal static class DeleteOp
                 if (!Menu.Confirm($"¿Restaurar archivos de '{package}' a home y eliminar symlinks?")) return;
                 Console.WriteLine();
 
+                // ── Copia eficiente: todo de un saque ──
+                string pkgDir = Path.Combine(Env.DotfilesDir, package);
+
+                // Listamos los archivos **antes** de borrar los symlinks
+                // para después llenar el resumen sin necesidad de otro enumerado
+                string[] files = Directory.GetFiles(pkgDir, "*", SearchOption.AllDirectories);
+
                 if (!Shell.StowDelete(Env.DotfilesDir, Env.HomeDir, package))
                 {
                     summary.TrackErr($"stow -D falló para '{package}', abortando restauración.");
@@ -70,20 +77,20 @@ internal static class DeleteOp
                 }
                 summary.TrackOk($"Symlinks de '{package}' eliminados.");
 
-                // Copiar cada archivo del repo a su ubicación original en home
-                string pkgDir = Path.Combine(Env.DotfilesDir, package);
-                foreach (string src in Directory.EnumerateFiles(pkgDir, "*", SearchOption.AllDirectories))
+                // Copiamos todo el contenido del paquete a $HOME en un solo comando
+                // (cp -a preserva permisos, dueño, grupo, timestamps y enlaces simbólicos)
+                bool copyOk = Shell.CopyDir(pkgDir, Env.HomeDir);
+                if (copyOk)
                 {
-                    string rel  = Path.GetRelativePath(pkgDir, src);
-                    string dest = Path.Combine(Env.HomeDir, rel);
-                    Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-                    try
+                    foreach (string src in files)
                     {
-                        File.Copy(src, dest, overwrite: true);
+                        string rel = Path.GetRelativePath(pkgDir, src);
                         summary.TrackOk($"Restaurado: ~/{rel}");
                     }
-                    catch { summary.TrackErr($"No se pudo restaurar: ~/{rel}"); }
                 }
+                else
+                    summary.TrackErr($"Falló la copia masiva del paquete '{package}'.");
+
                 break;
 
             case 2:
@@ -115,7 +122,7 @@ internal static class DeleteOp
 
         if (string.IsNullOrEmpty(path)) { Printer.Error("Ruta vacía."); return; }
 
-        bool exists    = File.Exists(path) || Directory.Exists(path);
+        bool exists = File.Exists(path) || Directory.Exists(path);
         bool isSymlink = exists && new FileInfo(path).Attributes.HasFlag(FileAttributes.ReparsePoint);
 
         if (!isSymlink)
@@ -162,7 +169,7 @@ internal static class DeleteOp
                 );
 
                 if (copied) summary.TrackOk($"Archivo restaurado: {path}");
-                else        summary.TrackErr($"Falló la restauración de: {path}");
+                else summary.TrackErr($"Falló la restauración de: {path}");
                 break;
 
             case 2:

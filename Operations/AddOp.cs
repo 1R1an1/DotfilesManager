@@ -81,7 +81,7 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        if (!Backup.BackupHomeFile(path, Env.BackupDir, summary)) return;
+        if (!Backup.BackupHomeFile(path, Env.BackupDir + "_addHomeAction", summary)) return;
 
         Directory.CreateDirectory(Path.GetDirectoryName(destInRepo)!);
         try
@@ -127,7 +127,7 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        if (!Backup.BackupSystemFile(path, Env.BackupDir)) return;
+        if (!Backup.BackupSystemFile(path, Env.BackupDir + "_AddSystemAction")) return;
 
         if (!Shell.SudoMove(path, destInRepo))
         {

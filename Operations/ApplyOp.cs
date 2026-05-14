@@ -44,12 +44,15 @@ internal static class ApplyOp
 
         // Crear el directorio de backup con timestamp para esta sesión.
         // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
-        string backupDir = Env.BackupDir;
+        string backupDir = Env.BackupDir + "_applyAction";
 
         Console.WriteLine();
         Printer.Info("Haciendo backup de archivos existentes...");
         foreach (string pkg in chosenPackages)
-            Backup.BackupPackage(pkg, backupDir);
+            foreach (var i in Backup.BackupPackage(pkg, backupDir))
+                File.Delete(i);
+
+
 
         Console.WriteLine();
         Printer.Info("Aplicando symlinks...");
@@ -86,7 +89,7 @@ internal static class ApplyOp
                     // Ej: /repo/system/etc/grub/grub.cfg → /etc/grub/grub.cfg
                     string destPath = "/" + Path.GetRelativePath(Env.SystemDir, file);
 
-                    Backup.BackupSystemFile(destPath, backupDir);
+                    if (!Backup.BackupSystemFile(destPath, backupDir)) return;
 
                     if (Shell.SudoSymlink(file, destPath))
                         summary.TrackOk($"symlink sistema: {destPath}");
