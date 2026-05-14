@@ -2,15 +2,16 @@ using static DotfilesManager.UI.Colors;
 
 namespace DotfilesManager.UI;
 
+// Componentes interactivos de la TUI: menú de selección simple, múltiple y confirmación.
+// La navegación usa vim keys (j/k/gg/G) y flechas del teclado.
+// El "render" es simple: Console.Clear() + redibujar todo en cada tecla presionada.
 internal static class Menu
 {
-    // ── Selección simple ──────────────────────────────────────────────────────
-    // Retorna el índice elegido, o -1 si el usuario canceló con q.
+    // Muestra una lista y retorna el índice elegido.
+    // Retorna -1 si el usuario cancela con q.
     public static int SelectOne(string title, string[] items)
     {
         int cursor = 0;
-        int total  = items.Length;
-
         Console.CursorVisible = false;
         try
         {
@@ -20,27 +21,22 @@ internal static class Menu
                 Console.WriteLine($"  {Dim}j/↓ abajo  k/↑ arriba  gg inicio  G fin  Enter confirmar  q cancelar{Reset}");
                 Console.WriteLine();
 
-                var action = ReadKey(total, ref cursor, out int directJump);
+                var action = ReadKey(items.Length, ref cursor, out int directJump);
 
-                if (action == KeyAction.Cancel)  return -1;
-                if (action == KeyAction.Confirm) return cursor;
-                if (action == KeyAction.DirectJump) { cursor = directJump; return cursor; }
-                // Move: cursor ya fue actualizado dentro de ReadKey
+                if (action == KeyAction.Cancel)     return -1;
+                if (action == KeyAction.Confirm)    return cursor;
+                if (action == KeyAction.DirectJump) return directJump;
             }
         }
-        finally
-        {
-            Console.CursorVisible = true;
-        }
+        finally { Console.CursorVisible = true; }
     }
 
-    // ── Selección múltiple ────────────────────────────────────────────────────
-    // Retorna los índices marcados, o array vacío si canceló.
+    // Muestra una lista con checkboxes y retorna los índices marcados.
+    // Retorna array vacío si el usuario cancela con q.
     public static int[] SelectMulti(string title, string[] items)
     {
-        int    cursor  = 0;
-        int    total   = items.Length;
-        bool[] marked  = new bool[total];
+        int    cursor = 0;
+        bool[] marked = new bool[items.Length];
 
         Console.CursorVisible = false;
         try
@@ -55,77 +51,54 @@ internal static class Menu
 
                 switch (key.KeyChar)
                 {
-                    case 'q':
-                    case 'Q':
-                        return [];
+                    case 'q': case 'Q': return [];
+                    case 'j': if (cursor < items.Length - 1) cursor++; break;
+                    case 'k': if (cursor > 0) cursor--;                break;
+                    case 'G': cursor = items.Length - 1;               break;
+                    case 'g': if (TryReadSecondG()) cursor = 0;        break;
 
-                    case 'j':
-                        if (cursor < total - 1) cursor++;
-                        break;
-
-                    case 'k':
-                        if (cursor > 0) cursor--;
-                        break;
-
-                    case 'G':
-                        cursor = total - 1;
-                        break;
-
-                    case 'g':
-                        if (TryReadSecondG()) cursor = 0;
-                        break;
-
-                    case 'a':
-                    case 'A':
+                    case 'a': case 'A':
+                        // Si todos están marcados, desmarcar todos; si no, marcar todos
                         bool allMarked = Array.TrueForAll(marked, m => m);
-                        for (int i = 0; i < total; i++) marked[i] = !allMarked;
+                        for (int i = 0; i < items.Length; i++) marked[i] = !allMarked;
                         break;
 
                     case ' ':
                         marked[cursor] = !marked[cursor];
-                        if (cursor < total - 1) cursor++;
+                        if (cursor < items.Length - 1) cursor++;
                         break;
 
-                    case '\r':
-                    case '\n':
-                        var result = new List<int>();
-                        for (int i = 0; i < total; i++)
-                            if (marked[i]) result.Add(i);
-                        return [.. result];
+                    case '\r': case '\n':
+                        return Enumerable.Range(0, items.Length).Where(i => marked[i]).ToArray();
 
                     default:
-                        if (key.Key == ConsoleKey.UpArrow   && cursor > 0)        cursor--;
-                        if (key.Key == ConsoleKey.DownArrow && cursor < total - 1) cursor++;
-
-                        // Teclas numéricas 1-9
+                        if (key.Key == ConsoleKey.UpArrow   && cursor > 0)               cursor--;
+                        if (key.Key == ConsoleKey.DownArrow && cursor < items.Length - 1) cursor++;
                         if (key.KeyChar >= '1' && key.KeyChar <= '9')
                         {
                             int n = key.KeyChar - '1';
-                            if (n < total) marked[n] = !marked[n];
+                            if (n < items.Length) marked[n] = !marked[n];
                         }
                         break;
                 }
             }
         }
-        finally
-        {
-            Console.CursorVisible = true;
-        }
+        finally { Console.CursorVisible = true; }
     }
 
-    // ── Confirmación s/N ──────────────────────────────────────────────────────
+    // Muestra una pregunta s/N y retorna true si el usuario escribe "s"
     public static bool Confirm(string msg = "¿Seguro?")
     {
         Console.WriteLine();
         Console.Write($"  {Yellow}?{Reset} {msg} [s/N]: ");
-        string? resp = Console.ReadLine();
-        return resp?.ToLower() == "s";
+        return Console.ReadLine()?.Trim().ToLower() == "s";
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────────
 
     private enum KeyAction { Move, Confirm, Cancel, DirectJump }
 
+    // Lee una tecla y actualiza el cursor. Retorna la acción correspondiente.
     private static KeyAction ReadKey(int total, ref int cursor, out int directJump)
     {
         directJump = -1;
@@ -133,34 +106,15 @@ internal static class Menu
 
         switch (key.KeyChar)
         {
-            case 'q':
-            case 'Q':
-                return KeyAction.Cancel;
-
-            case 'j':
-                if (cursor < total - 1) cursor++;
-                return KeyAction.Move;
-
-            case 'k':
-                if (cursor > 0) cursor--;
-                return KeyAction.Move;
-
-            case 'G':
-                cursor = total - 1;
-                return KeyAction.Move;
-
-            case 'g':
-                if (TryReadSecondG()) cursor = 0;
-                return KeyAction.Move;
-
-            case '\r':
-            case '\n':
-                return KeyAction.Confirm;
-
+            case 'q': case 'Q': return KeyAction.Cancel;
+            case 'j': if (cursor < total - 1) cursor++; return KeyAction.Move;
+            case 'k': if (cursor > 0) cursor--;          return KeyAction.Move;
+            case 'G': cursor = total - 1;                return KeyAction.Move;
+            case 'g': if (TryReadSecondG()) cursor = 0;  return KeyAction.Move;
+            case '\r': case '\n':                        return KeyAction.Confirm;
             default:
                 if (key.Key == ConsoleKey.UpArrow   && cursor > 0)        cursor--;
                 if (key.Key == ConsoleKey.DownArrow && cursor < total - 1) cursor++;
-
                 if (key.KeyChar >= '1' && key.KeyChar <= '9')
                 {
                     int n = key.KeyChar - '1';
@@ -170,22 +124,16 @@ internal static class Menu
         }
     }
 
-    // Lee un segundo 'g' con timeout para implementar 'gg'
+    // Espera hasta 300ms a ver si viene una segunda 'g' para implementar 'gg' (ir al inicio)
     private static bool TryReadSecondG()
     {
-        if (!Console.KeyAvailable)
-        {
-            // Esperar hasta ~300ms
-            var deadline = DateTime.UtcNow.AddMilliseconds(300);
-            while (!Console.KeyAvailable && DateTime.UtcNow < deadline)
-                Thread.Sleep(10);
-        }
-        if (!Console.KeyAvailable) return false;
-        var k = Console.ReadKey(intercept: true);
-        return k.KeyChar == 'g';
+        var deadline = DateTime.UtcNow.AddMilliseconds(300);
+        while (!Console.KeyAvailable && DateTime.UtcNow < deadline)
+            Thread.Sleep(10);
+        return Console.KeyAvailable && Console.ReadKey(intercept: true).KeyChar == 'g';
     }
 
-    // Dibuja la lista (modo simple o multi)
+    // Dibuja la lista completa. selected == null significa modo simple (sin checkboxes).
     private static void Draw(string title, string[] items, int cursor, bool[]? selected)
     {
         Console.Clear();
@@ -194,17 +142,14 @@ internal static class Menu
 
         for (int i = 0; i < items.Length; i++)
         {
-            bool isMulti = selected is not null;
-            bool isCursor = i == cursor;
+            string check = selected is null ? "  "
+                : selected[i] ? $"{Green}✔{Reset} "
+                              : $"{Dim}○{Reset} ";
 
-            string checkmark = isMulti
-                ? (selected![i] ? $"{Green}✔{Reset} " : $"{Dim}○{Reset} ")
-                : "  ";
-
-            if (isCursor)
-                Console.WriteLine($"  {Cyan}{Bold}▶{Reset} {checkmark}{i + 1}) {items[i]}");
+            if (i == cursor)
+                Console.WriteLine($"  {Cyan}{Bold}▶{Reset} {check}{i + 1}) {items[i]}");
             else
-                Console.WriteLine($"    {checkmark}{Dim}{i + 1}) {items[i]}{Reset}");
+                Console.WriteLine($"    {check}{Dim}{i + 1}) {items[i]}{Reset}");
         }
 
         Console.WriteLine();

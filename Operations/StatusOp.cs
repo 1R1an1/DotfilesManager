@@ -34,6 +34,7 @@ internal static class StatusOp
                 _ => $"{Dim}— vacío{Reset}",
             };
 
+            // %-30s alinea el nombre del paquete a 30 caracteres para que los iconos queden en columna
             Console.WriteLine($"  {pkg,-30}{icon}");
 
             if (status.Ok > 0) Console.WriteLine($"    {Dim}symlinks ok:  {status.Ok}{Reset}");

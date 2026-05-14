@@ -1,6 +1,5 @@
 using DotfilesManager.Core;
 using DotfilesManager.UI;
-using static DotfilesManager.UI.Colors;
 
 namespace DotfilesManager.Operations;
 
@@ -43,6 +42,8 @@ internal static class ApplyOp
             return;
         }
 
+        // Crear el directorio de backup con timestamp para esta sesión.
+        // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
         string backupDir = Env.BackupDir;
 
         Console.WriteLine();
@@ -56,6 +57,9 @@ internal static class ApplyOp
 
         foreach (string pkg in chosenPackages)
         {
+            // Intentar stow normal primero.
+            // Si falla por archivos existentes que no son de stow, intentar con --adopt
+            // que los mueve al repo y crea el symlink en su lugar.
             if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg))
                 summary.TrackOk($"stow: {pkg}");
             else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true))
@@ -64,20 +68,31 @@ internal static class ApplyOp
                 summary.TrackErr($"stow falló: {pkg}");
         }
 
-        // Symlinks de sistema
-        if (Directory.Exists(Env.SystemDir))
+        // Los symlinks de sistema son una operación separada y más riesgosa,
+        // así que se preguntan aparte y solo si hay algo en la carpeta system/
+        if (Directory.Exists(Env.SystemDir) &&
+            Directory.EnumerateFileSystemEntries(Env.SystemDir).Any())
         {
             Console.WriteLine();
-            Printer.Info("Aplicando symlinks de sistema...");
-            Console.WriteLine();
-
-            foreach (string file in Directory.EnumerateFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
+            if (Menu.Confirm("¿Aplicar también los symlinks de sistema?"))
             {
-                string destPath = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                if (Shell.SudoSymlink(file, destPath))
-                    summary.TrackOk($"symlink sistema: {destPath}");
-                else
-                    summary.TrackErr($"symlink sistema falló: {destPath}");
+                Console.WriteLine();
+                Printer.Info("Aplicando symlinks de sistema...");
+                Console.WriteLine();
+
+                foreach (string file in Directory.EnumerateFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
+                {
+                    // Reconstruir la ruta de destino quitando el prefijo de SystemDir
+                    // Ej: /repo/system/etc/grub/grub.cfg → /etc/grub/grub.cfg
+                    string destPath = "/" + Path.GetRelativePath(Env.SystemDir, file);
+
+                    Backup.BackupSystemFile(destPath, backupDir);
+
+                    if (Shell.SudoSymlink(file, destPath))
+                        summary.TrackOk($"symlink sistema: {destPath}");
+                    else
+                        summary.TrackErr($"symlink sistema falló: {destPath}");
+                }
             }
         }
 

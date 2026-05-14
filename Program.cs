@@ -2,8 +2,14 @@ using DotfilesManager.Core;
 using DotfilesManager.Operations;
 using DotfilesManager.UI;
 
-// Asegurar que la terminal soporte UTF-8
 Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+// Relanzar con sudo si no somos root, para que las operaciones de sistema funcionen
+if (!Environment.IsPrivilegedProcess)
+{
+    System.Diagnostics.Process.Start("sudo", Environment.ProcessPath!)?.WaitForExit();
+    return;
+}
 
 Env.LoadOrInit();
 
@@ -15,7 +21,7 @@ string[] mainOptions =
     "Ver estado de symlinks",
     "Borrar symlinks",
     "Agregar archivo al repo",
-    "Ejecutar script"
+    "Ejecutar script",
 ];
 
 while (true)
@@ -24,23 +30,11 @@ while (true)
 
     switch (choice)
     {
-        case -1:
-            Console.WriteLine();
-            return;
-        case 0:
-            ApplyOp.Run(summary);
-            break;
-        case 1:
-            StatusOp.Run();
-            break;
-        case 2:
-            DeleteOp.Run(summary);
-            break;
-        case 3:
-            AddOp.Run(summary);
-            break;
-        case 4:
-            ExecuteOp.Run(summary);
-            break;
+        case -1: Console.WriteLine(); return;
+        case 0:  ApplyOp.Run(summary);  break;
+        case 1:  StatusOp.Run();         break;
+        case 2:  DeleteOp.Run(summary);  break;
+        case 3:  AddOp.Run(summary);     break;
+        case 4:  ExecuteOp.Run(summary); break;
     }
 }

@@ -17,16 +17,15 @@ internal static class AddOp
 
         if (choice == -1) return;
 
-        if (choice == 0)
-            AddFromHome(summary);
-        else
-            AddFromSystem(summary);
+        if (choice == 0) AddFromHome(summary);
+        else AddFromSystem(summary);
 
         summary.Print();
         Printer.PressEnterToContinue();
     }
 
     // ── Desde home ────────────────────────────────────────────────────────────
+
     private static void AddFromHome(Summary summary)
     {
         Console.WriteLine();
@@ -34,7 +33,6 @@ internal static class AddOp
         string? input = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(input)) { Printer.Error("Ruta vacía."); return; }
 
-        // Expandir ~
         string path = input.StartsWith("~/")
             ? Path.Combine(Env.HomeDir, input[2..])
             : input;
@@ -45,7 +43,7 @@ internal static class AddOp
             return;
         }
 
-        // Seleccionar o crear paquete
+        // Mostrar paquetes existentes con "Crear paquete nuevo" al pricipio
         string[] packages = Env.GetPackages();
         string[] pkgOptions = ["── Crear paquete nuevo ──", .. packages];
         int pkgIdx = Menu.SelectOne("Seleccioná el paquete destino", pkgOptions);
@@ -56,8 +54,9 @@ internal static class AddOp
         if (pkgIdx == -1) return;
 
         string package;
-        if (pkgIdx == packages.Length)
+        if (pkgIdx == 0)
         {
+            // El usuario eligió "Crear paquete nuevo" (siempre es el primer índice)
             Console.WriteLine();
             Console.Write("  Nombre del nuevo paquete: ");
             string? newPkg = Console.ReadLine()?.Trim();
@@ -70,6 +69,9 @@ internal static class AddOp
             package = packages[pkgIdx];
         }
 
+        // La ruta relativa al home es la estructura que stow va a replicar con symlinks.
+        // Ej: /home/user/.config/hypr/hyprland.conf → rel = .config/hypr/hyprland.conf
+        //     destInRepo = /repo/hyprland/.config/hypr/hyprland.conf
         string rel = Path.GetRelativePath(Env.HomeDir, path);
         string destInRepo = Path.Combine(Env.DotfilesDir, package, rel);
 
@@ -79,24 +81,18 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        string backupDir = Env.BackupDir;
-        if (!Backup.BackupHomeFile(path, backupDir, summary))
-            return;
-
+        if (!Backup.BackupHomeFile(path, Env.BackupDir, summary)) return;
 
         Directory.CreateDirectory(Path.GetDirectoryName(destInRepo)!);
         try
         {
-            if (File.Exists(path))
-                File.Move(path, destInRepo);
-            else
-                MoveDirectory(path, destInRepo);
-
+            if (File.Exists(path)) File.Move(path, destInRepo);
+            else MoveDirectory(path, destInRepo);
             summary.TrackOk($"Movido a: {destInRepo}");
         }
         catch (Exception ex)
         {
-            summary.TrackErr($"No se pudo mover el archivo: {ex.Message}");
+            summary.TrackErr($"No se pudo mover: {ex.Message}");
             return;
         }
 
@@ -107,6 +103,7 @@ internal static class AddOp
     }
 
     // ── Desde sistema ─────────────────────────────────────────────────────────
+
     private static void AddFromSystem(Summary summary)
     {
         Console.WriteLine();
@@ -120,6 +117,8 @@ internal static class AddOp
             return;
         }
 
+        // Espeja la estructura del sistema dentro de system/.
+        // Ej: /etc/grub/grub.cfg → /repo/system/etc/grub/grub.cfg
         string destInRepo = Path.Combine(Env.SystemDir, path.TrimStart('/'));
 
         Console.WriteLine();
@@ -128,8 +127,7 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        if (!Backup.BackupSystemFile(path, Env.BackupDir))
-            return;
+        if (!Backup.BackupSystemFile(path, Env.BackupDir)) return;
 
         if (!Shell.SudoMove(path, destInRepo))
         {
@@ -145,6 +143,9 @@ internal static class AddOp
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
+
+    // File.Move no puede mover carpetas entre distintas ubicaciones,
+    // así que se hace archivo por archivo y después se borra la carpeta original.
     private static void MoveDirectory(string src, string dest)
     {
         Directory.CreateDirectory(dest);
