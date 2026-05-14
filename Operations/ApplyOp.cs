@@ -96,6 +96,29 @@ internal static class ApplyOp
             return;
         }
 
+        // Primero backup de todo lo seleccionado
+        Console.WriteLine();
+        Printer.Info("Haciendo backup de archivos de sistema...");
+        Console.WriteLine();
+
+        foreach (string entryInRepo in selected)
+        {
+            if (Directory.Exists(entryInRepo))
+            {
+                foreach (string file in Directory.EnumerateFiles(entryInRepo, "*", SearchOption.AllDirectories))
+                {
+                    string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
+                    if (!Backup.BackupSystemFile(dest, backupDir, summary)) return;
+                }
+            }
+            else
+            {
+                string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
+                if (!Backup.BackupSystemFile(dest, backupDir, summary)) return;
+            }
+        }
+
+        // Después aplicar todo
         Console.WriteLine();
         Printer.Info("Aplicando symlinks de sistema...");
         Console.WriteLine();
@@ -109,7 +132,6 @@ internal static class ApplyOp
                 {
                     string rel = Path.GetRelativePath(Env.SystemDir, file);
                     string dest = "/" + rel;
-                    Backup.BackupSystemFile(dest, backupDir);
                     if (Shell.SudoSymlink(file, dest))
                         summary.TrackOk($"symlink sistema: {dest}");
                     else
@@ -120,7 +142,6 @@ internal static class ApplyOp
             {
                 // Si es archivo, aplicar directamente
                 string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
-                Backup.BackupSystemFile(dest, backupDir);
                 if (Shell.SudoSymlink(entryInRepo, dest))
                     summary.TrackOk($"symlink sistema: {dest}");
                 else
