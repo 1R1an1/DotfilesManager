@@ -9,14 +9,17 @@ internal static class ApplyOp
     {
         summary.Reset();
 
+        // Crear el directorio de backup con timestamp para esta sesión.
+        // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
+        string? backupDir = Env.BackupDir + "_applyAction";
+
         string[] packages = Env.GetPackages();
         if (packages.Length == 0)
         {
             Console.Clear();
             Printer.Header("Aplicar dotfiles");
             Printer.Error("No hay paquetes stow disponibles.");
-            Printer.PressEnterToContinue();
-            return;
+            goto system;
         }
 
         int[] selected = Menu.SelectMulti("Aplicar dotfiles — seleccioná paquetes", packages);
@@ -27,8 +30,7 @@ internal static class ApplyOp
         if (selected.Length == 0)
         {
             Printer.Warn("No seleccionaste ningún paquete.");
-            Printer.PressEnterToContinue();
-            return;
+            goto system;
         }
 
         string[] chosenPackages = selected.Select(i => packages[i]).ToArray();
@@ -41,10 +43,6 @@ internal static class ApplyOp
             Printer.PressEnterToContinue();
             return;
         }
-
-        // Crear el directorio de backup con timestamp para esta sesión.
-        // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
-        string backupDir = Env.BackupDir + "_applyAction";
 
         Console.WriteLine();
         Printer.Info("Haciendo backup de archivos existentes...");
@@ -71,35 +69,63 @@ internal static class ApplyOp
                 summary.TrackErr($"stow falló: {pkg}");
         }
 
-        // Los symlinks de sistema son una operación separada y más riesgosa,
-        // así que se preguntan aparte y solo si hay algo en la carpeta system/
+    system:
         if (Directory.Exists(Env.SystemDir) &&
             Directory.EnumerateFileSystemEntries(Env.SystemDir).Any())
         {
             Console.WriteLine();
-            if (Menu.Confirm("¿Aplicar también los symlinks de sistema?"))
-            {
-                Console.WriteLine();
-                Printer.Info("Aplicando symlinks de sistema...");
-                Console.WriteLine();
-
-                foreach (string file in Directory.EnumerateFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
-                {
-                    // Reconstruir la ruta de destino quitando el prefijo de SystemDir
-                    // Ej: /repo/system/etc/grub/grub.cfg → /etc/grub/grub.cfg
-                    string destPath = "/" + Path.GetRelativePath(Env.SystemDir, file);
-
-                    if (!Backup.BackupSystemFile(destPath, backupDir)) return;
-
-                    if (Shell.SudoSymlink(file, destPath))
-                        summary.TrackOk($"symlink sistema: {destPath}");
-                    else
-                        summary.TrackErr($"symlink sistema falló: {destPath}");
-                }
-            }
+            if (Menu.Confirm("¿Aplicar también symlinks de sistema?"))
+                ApplySystemSymlinks(summary, backupDir);
         }
 
         summary.Print();
         Printer.PressEnterToContinue();
+    }
+
+    private static void ApplySystemSymlinks(Summary summary, string backupDir)
+    {
+        // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
+        string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a aplicar", Env.SystemDir);
+
+        Console.Clear();
+        Printer.Header("Aplicar dotfiles");
+
+        if (selected.Length == 0)
+        {
+            Printer.Warn("No seleccionaste ningún symlink de sistema.");
+            return;
+        }
+
+        Console.WriteLine();
+        Printer.Info("Aplicando symlinks de sistema...");
+        Console.WriteLine();
+
+        foreach (string entryInRepo in selected)
+        {
+            if (Directory.Exists(entryInRepo))
+            {
+                // Si es carpeta, aplicar cada archivo adentro como symlink individual
+                foreach (string file in Directory.EnumerateFiles(entryInRepo, "*", SearchOption.AllDirectories))
+                {
+                    string rel = Path.GetRelativePath(Env.SystemDir, file);
+                    string dest = "/" + rel;
+                    Backup.BackupSystemFile(dest, backupDir);
+                    if (Shell.SudoSymlink(file, dest))
+                        summary.TrackOk($"symlink sistema: {dest}");
+                    else
+                        summary.TrackErr($"symlink sistema falló: {dest}");
+                }
+            }
+            else
+            {
+                // Si es archivo, aplicar directamente
+                string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
+                Backup.BackupSystemFile(dest, backupDir);
+                if (Shell.SudoSymlink(entryInRepo, dest))
+                    summary.TrackOk($"symlink sistema: {dest}");
+                else
+                    summary.TrackErr($"symlink sistema falló: {dest}");
+            }
+        }
     }
 }
