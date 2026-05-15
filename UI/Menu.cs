@@ -23,8 +23,8 @@ internal static class Menu
 
                 var action = ReadKey(items.Length, ref cursor, out int directJump);
 
-                if (action == KeyAction.Cancel)     return -1;
-                if (action == KeyAction.Confirm)    return cursor;
+                if (action == KeyAction.Cancel) return -1;
+                if (action == KeyAction.Confirm) return cursor;
                 if (action == KeyAction.DirectJump) return directJump;
             }
         }
@@ -35,7 +35,7 @@ internal static class Menu
     // Retorna array vacío si el usuario cancela con q.
     public static int[] SelectMulti(string title, string[] items)
     {
-        int    cursor = 0;
+        int cursor = 0;
         bool[] marked = new bool[items.Length];
 
         Console.CursorVisible = false;
@@ -53,11 +53,12 @@ internal static class Menu
                 {
                     case 'q': case 'Q': return [];
                     case 'j': if (cursor < items.Length - 1) cursor++; break;
-                    case 'k': if (cursor > 0) cursor--;                break;
-                    case 'G': cursor = items.Length - 1;               break;
-                    case 'g': if (TryReadSecondG()) cursor = 0;        break;
+                    case 'k': if (cursor > 0) cursor--; break;
+                    case 'G': cursor = items.Length - 1; break;
+                    case 'g': if (TryReadSecondG()) cursor = 0; break;
 
-                    case 'a': case 'A':
+                    case 'a':
+                    case 'A':
                         // Si todos están marcados, desmarcar todos; si no, marcar todos
                         bool allMarked = Array.TrueForAll(marked, m => m);
                         for (int i = 0; i < items.Length; i++) marked[i] = !allMarked;
@@ -68,11 +69,12 @@ internal static class Menu
                         if (cursor < items.Length - 1) cursor++;
                         break;
 
-                    case '\r': case '\n':
+                    case '\r':
+                    case '\n':
                         return Enumerable.Range(0, items.Length).Where(i => marked[i]).ToArray();
 
                     default:
-                        if (key.Key == ConsoleKey.UpArrow   && cursor > 0)               cursor--;
+                        if (key.Key == ConsoleKey.UpArrow && cursor > 0) cursor--;
                         if (key.Key == ConsoleKey.DownArrow && cursor < items.Length - 1) cursor++;
                         if (key.KeyChar >= '1' && key.KeyChar <= '9')
                         {
@@ -108,12 +110,12 @@ internal static class Menu
         {
             case 'q': case 'Q': return KeyAction.Cancel;
             case 'j': if (cursor < total - 1) cursor++; return KeyAction.Move;
-            case 'k': if (cursor > 0) cursor--;          return KeyAction.Move;
-            case 'G': cursor = total - 1;                return KeyAction.Move;
-            case 'g': if (TryReadSecondG()) cursor = 0;  return KeyAction.Move;
-            case '\r': case '\n':                        return KeyAction.Confirm;
+            case 'k': if (cursor > 0) cursor--; return KeyAction.Move;
+            case 'G': cursor = total - 1; return KeyAction.Move;
+            case 'g': if (TryReadSecondG()) cursor = 0; return KeyAction.Move;
+            case '\r': case '\n': return KeyAction.Confirm;
             default:
-                if (key.Key == ConsoleKey.UpArrow   && cursor > 0)        cursor--;
+                if (key.Key == ConsoleKey.UpArrow && cursor > 0) cursor--;
                 if (key.Key == ConsoleKey.DownArrow && cursor < total - 1) cursor++;
                 if (key.KeyChar >= '1' && key.KeyChar <= '9')
                 {
@@ -147,7 +149,7 @@ internal static class Menu
                               : $"{Dim}○{Reset} ";
 
             if (i == cursor)
-                Console.WriteLine($"  {Cyan}{Bold}▶{Reset} {check}{i + 1}) {items[i]}");
+                Console.WriteLine($"  {Printer.color}{Bold}▶{Reset} {check}{i + 1}) {items[i]}");
             else
                 Console.WriteLine($"    {check}{Dim}{i + 1}) {items[i]}{Reset}");
         }

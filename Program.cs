@@ -31,10 +31,10 @@ while (true)
     switch (choice)
     {
         case -1: Console.WriteLine(); return;
-        case 0:  ApplyOp.Run(summary);  break;
-        case 1:  StatusOp.Run();         break;
-        case 2:  DeleteOp.Run(summary);  break;
-        case 3:  AddOp.Run(summary);     break;
-        case 4:  ExecuteOp.Run(summary); break;
+        case 0: ApplyOp.Run(summary); break;
+        case 1: StatusOp.Run(); break;
+        case 2: DeleteOp.Run(summary); break;
+        case 3: AddOp.Run(summary); break;
+        case 4: ExecuteOp.Run(summary); break;
     }
 }

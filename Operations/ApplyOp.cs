@@ -163,16 +163,11 @@ internal static class ApplyOp
         {
             if (Directory.Exists(entryInRepo))
             {
-                // Si es carpeta, aplicar cada archivo adentro como symlink individual
-                foreach (string file in Directory.EnumerateFiles(entryInRepo, "*", SearchOption.AllDirectories))
-                {
-                    string rel = Path.GetRelativePath(Env.SystemDir, file);
-                    string dest = "/" + rel;
-                    if (Shell.Symlink(file, dest, true).Ok)
-                        summary.TrackOk($"symlink sistema: {dest}");
-                    else
-                        summary.TrackErr($"symlink sistema falló: {dest}");
-                }
+                // Si es carpeta, symlinkear cada archivo adentro, no la carpeta
+                string destDir = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
+                var created = Shell.SymlinkDirectoryContents(entryInRepo, destDir, asSudo: true);
+                foreach (string dest in created)
+                    summary.TrackOk($"symlink sistema: {dest}");
             }
             else
             {

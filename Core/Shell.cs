@@ -150,7 +150,7 @@ internal static class Shell
 
         // Si el destino existe, borrarlo antes (mv no sobrescribe carpetas)
         if (File.Exists(dest) || Directory.Exists(dest))
-            Run("rm", $"-rf \"{dest}\"", asSudo: asSudo);
+            Run("rm", $"-rf \"{dest}\"", asSudo: false);
 
         var (code, stdout, stderr, _) = Run("mv", $"\"{source}\" \"{dest}\"", asSudo: asSudo);
         return (code == 0, stdout, stderr);
@@ -200,6 +200,40 @@ internal static class Shell
 
         var (code, stdout, stderr, _) = Run("ln", $"-sf \"{source}\" \"{dest}\"", asSudo: asSudo);
         return (code == 0, stdout, stderr);
+    }
+
+    /// <summary>
+    /// Crea symlinks individuales para cada archivo dentro de sourceDir en targetDir,
+    /// recreando la estructura de subdirectorios. No symlinkea la carpeta en sí.
+    /// </summary>
+    /// <param name="sourceDir">Carpeta origen (ej: repo/system/boot/grub/themes)</param>
+    /// <param name="targetDir">Carpeta destino donde se crearán los symlinks (ej: /boot/grub/themes)</param>
+    /// <param name="asSudo">Si true, usa sudo para crear los symlinks</param>
+    /// <returns>Lista de rutas de destino donde se crearon symlinks</returns>
+    public static List<string> SymlinkDirectoryContents(string sourceDir, string targetDir, bool asSudo = false)
+    {
+        List<string> created = new();
+
+        if (!Directory.Exists(sourceDir))
+            return created;
+
+        foreach (string file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+        {
+            string rel = Path.GetRelativePath(sourceDir, file);
+            string dest = Path.Combine(targetDir, rel);
+
+            // Asegurar que existe el directorio contenedor
+            string? destDir = Path.GetDirectoryName(dest);
+            if (destDir is not null)
+                Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
+
+            // Crear el symlink del archivo
+            var (ok, _, _) = Symlink(file, dest, asSudo: asSudo);
+            if (ok)
+                created.Add(dest);
+        }
+
+        return created;
     }
 
     /// <summary>

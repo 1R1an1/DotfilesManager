@@ -43,7 +43,7 @@ internal static class AddOp
             return;
         }
 
-        // Mostrar paquetes existentes con "Crear paquete nuevo" al pricipio
+        // Mostrar paquetes existentes con "Crear paquete nuevo" al principio
         string[] packages = Env.GetPackages();
         string[] pkgOptions = ["── Crear paquete nuevo ──", .. packages];
         int pkgIdx = Menu.SelectOne("Seleccioná el paquete destino", pkgOptions);
@@ -83,18 +83,13 @@ internal static class AddOp
         Printer.Info("Haciendo backup del archivo original...");
         if (!Backup.BackupHomeFile(path, Env.BackupDir + "_addHomeAction", summary)) return;
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destInRepo)!);
-        try
+        // Shell.Move mueve archivos y carpetas con un solo mv (sin sudo para home)
+        if (!Shell.Move(path, destInRepo).Ok)
         {
-            if (File.Exists(path)) File.Move(path, destInRepo);
-            else MoveDirectory(path, destInRepo);
-            summary.TrackOk($"Movido a: {destInRepo}");
-        }
-        catch (Exception ex)
-        {
-            summary.TrackErr($"No se pudo mover: {ex.Message}");
+            summary.TrackErr("No se pudo mover.");
             return;
         }
+        summary.TrackOk($"Movido a: {destInRepo}");
 
         if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
             summary.TrackOk($"Symlink creado en: ~/{rel}");
@@ -107,7 +102,7 @@ internal static class AddOp
     private static void AddFromSystem(Summary summary)
     {
         Console.WriteLine();
-        Console.Write("  Ruta del archivo de sistema: ");
+        Console.Write("  Ruta del archivo o carpeta del sistema: ");
         string? path = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(path)) { Printer.Error("Ruta vacía."); return; }
 
@@ -127,7 +122,7 @@ internal static class AddOp
 
         Console.WriteLine();
         Printer.Info("Haciendo backup del archivo original...");
-        if (!Backup.BackupSystemFile(path, Env.BackupDir + "_AddSystemAction")) return;
+        if (!Backup.BackupSystemFile(path, Env.BackupDir + "_AddSystemAction", summary)) return;
 
         if (!Shell.Move(path, destInRepo, true).Ok)
         {
@@ -136,26 +131,23 @@ internal static class AddOp
         }
         summary.TrackOk($"Movido a: {destInRepo}");
 
-        if (Shell.Symlink(destInRepo, path, true).Ok)
-            summary.TrackOk($"Symlink creado en: {path}");
-        else
-            summary.TrackErr("No se pudo crear el symlink.");
-    }
-
-    // ── Helper ────────────────────────────────────────────────────────────────
-
-    // File.Move no puede mover carpetas entre distintas ubicaciones,
-    // así que se hace archivo por archivo y después se borra la carpeta original.
-    private static void MoveDirectory(string src, string dest)
-    {
-        Directory.CreateDirectory(dest);
-        foreach (string file in Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories))
+        if (Directory.Exists(destInRepo))
         {
-            string rel = Path.GetRelativePath(src, file);
-            string destFile = Path.Combine(dest, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-            File.Move(file, destFile);
+            // Es carpeta: symlinkear cada archivo adentro, no la carpeta
+            var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
+            foreach (string dest in created)
+                summary.TrackOk($"Symlink creado en: {dest}");
+
+            if (created.Count == 0)
+                summary.TrackErr("No se pudo crear ningún symlink (carpeta vacía?).");
         }
-        Directory.Delete(src, recursive: true);
+        else
+        {
+            // Es archivo suelto
+            if (Shell.Symlink(destInRepo, path, true).Ok)
+                summary.TrackOk($"Symlink creado en: {path}");
+            else
+                summary.TrackErr("No se pudo crear el symlink.");
+        }
     }
 }
