@@ -88,26 +88,47 @@ internal static class Shell
     /// <param name="asSudo">Si true, usa sudo</param>
     /// <param name="recursive">Si true, copia recursivamente (para carpetas)</param>
     /// <param name="contents">Si true, copia el contenido de source dentro de dest (no source en sí)</param>
+    /// <param name="useParents">
+    /// Si true, usa cp --parents para recrear la estructura de directorios desde workingDir.
+    /// Útil para copiar archivos sueltos manteniendo su ruta relativa.
+    /// Ej: Copy(".config/nvim/init.vim", "/backup/", useParents: true, workingDir: "/home/user")
+    ///     → copia a /backup/.config/nvim/init.vim
+    /// </param>
+    /// <param name="workingDir">
+    /// Directorio base cuando useParents es true. Las rutas en source se interpretan relativas a este directorio.
+    /// Si es null, se usa el directorio actual.
+    /// </param>
     /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Copy(
         string source,
         string dest,
         bool asSudo = false,
         bool recursive = false,
-        bool contents = false)
+        bool contents = false,
+        bool useParents = false,
+        string? workingDir = null)
     {
-        // Asegurar que el directorio padre del destino existe
+        if (useParents)
+        {
+            // Con --parents, cp necesita las rutas relativas desde workingDir
+            string flags = "-a --parents";
+            var (code, stdout, stderr, _) = Run("cp", $"{flags} {source} \"{dest}\"",
+                workingDir: workingDir, asSudo: asSudo);
+            return (code == 0, stdout, stderr);
+        }
+
+        // Modo normal (sin --parents)
         string? destDir = Path.GetDirectoryName(dest);
         if (destDir is not null)
             Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
 
-        string flags = "--preserve=all";
+        string normalFlags = "--preserve=all";
         if (recursive || contents)
-            flags = "-a";  // -a = -dR --preserve=all
+            normalFlags = "-a";  // -a = -dR --preserve=all
 
         string srcPath = contents ? $"\"{source}\"/." : $"\"{source}\"";
-        var (code, stdout, stderr, _) = Run("cp", $"{flags} {srcPath} \"{dest}\"", asSudo: asSudo);
-        return (code == 0, stdout, stderr);
+        var (normalCode, normalStdout, normalStderr, _) = Run("cp", $"{normalFlags} {srcPath} \"{dest}\"", asSudo: asSudo);
+        return (normalCode == 0, normalStdout, normalStderr);
     }
 
     /// <summary>

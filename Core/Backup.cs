@@ -34,9 +34,9 @@ internal static class Backup
         string fileArgs = string.Join(" ", relatives.Select(r => $"\"{r}\""));
 
         // Ejecutamos cp desde el home para que las rutas relativas funcionen
-        var (code, _, stderr, _) = Shell.Run("cp", $"-a --parents {fileArgs} \"{destDir}\"", workingDir: Env.HomeDir);
+        var (code, _, stderr) = Shell.Copy(fileArgs, destDir, useParents: true, workingDir: Env.HomeDir);
 
-        if (code != 0)
+        if (!code)
         {
             Printer.Warn($"Error en backup de '{package}': {stderr}");
             return [];
