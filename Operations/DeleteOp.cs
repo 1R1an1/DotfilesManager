@@ -53,7 +53,7 @@ internal static class DeleteOp
         {
             case 0:
                 if (!Menu.Confirm($"¿Eliminar symlinks de '{package}'? Los archivos quedan en el repo.")) return;
-                if (Shell.StowDelete(Env.DotfilesDir, Env.HomeDir, package))
+                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                     summary.TrackOk($"Symlinks de '{package}' eliminados.");
                 else
                     summary.TrackErr($"No se pudieron eliminar los symlinks de '{package}'.");
@@ -70,7 +70,7 @@ internal static class DeleteOp
                 // para después llenar el resumen sin necesidad de otro enumerado
                 string[] files = Directory.GetFiles(pkgDir, "*", SearchOption.AllDirectories);
 
-                if (!Shell.StowDelete(Env.DotfilesDir, Env.HomeDir, package))
+                if (!Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                 {
                     summary.TrackErr($"stow -D falló para '{package}', abortando restauración.");
                     return;
@@ -79,7 +79,7 @@ internal static class DeleteOp
 
                 // Copiamos todo el contenido del paquete a $HOME en un solo comando
                 // (cp -a preserva permisos, dueño, grupo, timestamps y enlaces simbólicos)
-                bool copyOk = Shell.CopyDir(pkgDir, Env.HomeDir);
+                bool copyOk = Shell.Copy(pkgDir, Env.HomeDir, recursive: true, contents: true).Ok;
                 if (copyOk)
                 {
                     foreach (string src in files)
@@ -97,7 +97,7 @@ internal static class DeleteOp
                 if (!Menu.Confirm($"¿Eliminar symlinks Y archivos del repo de '{package}'? Esto no tiene vuelta.")) return;
                 Console.WriteLine();
 
-                if (Shell.StowDelete(Env.DotfilesDir, Env.HomeDir, package))
+                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                     summary.TrackOk($"Symlinks de '{package}' eliminados.");
                 else
                     summary.TrackErr($"stow -D falló para '{package}'.");
@@ -152,7 +152,7 @@ internal static class DeleteOp
         {
             case 0:
                 if (!Menu.Confirm($"¿Eliminar symlink '{path}'? El archivo queda en el repo.")) return;
-                if (Shell.SudoRemove(path))
+                if (Shell.Remove(path, true).Ok)
                     summary.TrackOk($"Symlink eliminado: {path}");
                 else
                     summary.TrackErr($"No se pudo eliminar: {path}");
@@ -160,12 +160,12 @@ internal static class DeleteOp
 
             case 1:
                 if (!Menu.Confirm($"¿Restaurar '{repoFile}' a '{path}' y eliminar el symlink?")) return;
-                Shell.SudoRemove(path);
+                Shell.Remove(path, true);
 
                 bool copied = repoFile is not null && (
                     Directory.Exists(repoFile)
-                        ? Shell.SudoCopyDir(repoFile, path)
-                        : Shell.SudoCopy(repoFile, path)
+                        ? Shell.Copy(repoFile, path, asSudo: true, recursive: true).Ok
+                        : Shell.Copy(repoFile, path, asSudo: true).Ok
                 );
 
                 if (copied) summary.TrackOk($"Archivo restaurado: {path}");
@@ -175,12 +175,12 @@ internal static class DeleteOp
             case 2:
                 if (!Menu.Confirm($"¿Eliminar symlink Y archivo del repo '{repoFile}'? Sin vuelta atrás.")) return;
 
-                if (Shell.SudoRemove(path))
+                if (Shell.Remove(path, true).Ok)
                     summary.TrackOk($"Symlink eliminado: {path}");
                 else
                     summary.TrackErr($"No se pudo eliminar el symlink: {path}");
 
-                if (repoFile is not null && Shell.SudoRemove(repoFile))
+                if (repoFile is not null && Shell.Remove(repoFile, true).Ok)
                     summary.TrackOk($"Archivo del repo eliminado: {repoFile}");
                 else
                     summary.TrackErr($"No se pudo eliminar del repo: {repoFile}");

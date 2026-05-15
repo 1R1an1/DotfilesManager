@@ -34,7 +34,7 @@ internal static class Backup
         string fileArgs = string.Join(" ", relatives.Select(r => $"\"{r}\""));
 
         // Ejecutamos cp desde el home para que las rutas relativas funcionen
-        var (code, stderr) = Shell.Run(Env.HomeDir, "cp", $"-a --parents {fileArgs} \"{destDir}\"");
+        var (code, _, stderr, _) = Shell.Run("cp", $"-a --parents {fileArgs} \"{destDir}\"", workingDir: Env.HomeDir);
 
         if (code != 0)
         {
@@ -80,8 +80,8 @@ internal static class Backup
         string dest = Path.Combine(backupDir, "system", absolutePath.TrimStart('/'));
 
         bool ok = Directory.Exists(absolutePath)
-            ? Shell.SudoCopyDir(absolutePath, dest)
-            : Shell.SudoCopy(absolutePath, dest);
+            ? Shell.Copy(absolutePath, dest, asSudo: true, recursive: true).Ok
+            : Shell.Copy(absolutePath, dest, asSudo: true).Ok;
 
         if (ok)
             Printer.Info($"Backup de sistema: {absolutePath} → {dest}");

@@ -34,7 +34,7 @@ internal static class ExecuteOp
         Printer.Info($"Ejecutando: {scriptNames[idx]}");
         Console.WriteLine();
 
-        if (Shell.Bash(scripts[idx]) == 0)
+        if (Shell.Bash(scripts[idx]).ExitCode == 0)
             summary.TrackOk("Script ejecutado correctamente.");
         else
             summary.TrackErr("El script terminó con error.");

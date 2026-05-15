@@ -105,9 +105,9 @@ internal static class ApplyOp
             // Intentar stow normal primero.
             // Si falla por archivos existentes que no son de stow, intentar con --adopt
             // que los mueve al repo y crea el symlink en su lugar.
-            if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg))
+            if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
                 summary.TrackOk($"stow: {pkg}");
-            else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true))
+            else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
                 summary.TrackOk($"stow (adopt): {pkg}");
             else
                 summary.TrackErr($"stow falló: {pkg}");
@@ -168,7 +168,7 @@ internal static class ApplyOp
                 {
                     string rel = Path.GetRelativePath(Env.SystemDir, file);
                     string dest = "/" + rel;
-                    if (Shell.SudoSymlink(file, dest))
+                    if (Shell.Symlink(file, dest, true).Ok)
                         summary.TrackOk($"symlink sistema: {dest}");
                     else
                         summary.TrackErr($"symlink sistema falló: {dest}");
@@ -178,7 +178,7 @@ internal static class ApplyOp
             {
                 // Si es archivo, aplicar directamente
                 string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
-                if (Shell.SudoSymlink(entryInRepo, dest))
+                if (Shell.Symlink(entryInRepo, dest, true).Ok)
                     summary.TrackOk($"symlink sistema: {dest}");
                 else
                     summary.TrackErr($"symlink sistema falló: {dest}");

@@ -4,150 +4,218 @@ namespace DotfilesManager.Core;
 
 internal static class Shell
 {
-    // Ejecuta un comando sin mostrar output en pantalla.
-    // Úsalo para operaciones silenciosas donde solo te importa si funcionó o no.
-    // Retorna el código de salida (0 = éxito) y el stderr.
-    public static (int ExitCode, string Stderr) Run(string command, string args)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Método ÚNICO de ejecución — hace todo
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Parámetros:
+    //   command    : el binario (ej: "cp", "ln", "stow")
+    //   args       : los argumentos
+    //   workingDir : directorio de trabajo (null = actual)
+    //   asSudo     : antepone "sudo" al comando
+    //   asUser     : ejecuta como el usuario real (útil cuando la app corre con sudo)
+    //   visible    : muestra output en pantalla en tiempo real
+    //   timeout    : tiempo máximo en segundos (0 = sin límite)
+    //
+    // Retorna:
+    //   ExitCode   : 0 = éxito
+    //   Stdout     : salida estándar completa
+    //   Stderr     : salida de error completa
+    //   TimedOut   : true si se mató por timeout
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (int ExitCode, string Stdout, string Stderr, bool TimedOut) Run(
+        string command,
+        string args,
+        string? workingDir = null,
+        bool asSudo = false,
+        bool asUser = false,
+        bool visible = false,
+        int timeout = 0)
     {
-        var psi = new ProcessStartInfo(command, args)
+        // Construir el comando final según las flags
+        string finalCommand = command;
+        string finalArgs = args;
+
+        if (asSudo)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            finalArgs = $"{command} {args}";
+            finalCommand = "sudo";
+        }
+
+        if (asUser)
+        {
+            string? sudoUser = Environment.GetEnvironmentVariable("SUDO_USER");
+            if (!string.IsNullOrEmpty(sudoUser))
+            {
+                finalArgs = $"-u {sudoUser} -- {finalCommand} {finalArgs}";
+                finalCommand = "runuser";
+            }
+        }
+
+        var psi = new ProcessStartInfo(finalCommand, finalArgs)
+        {
             UseShellExecute = false,
+            RedirectStandardOutput = !visible,
+            RedirectStandardError = !visible,
         };
+
+        if (workingDir is not null)
+            psi.WorkingDirectory = workingDir;
 
         using var proc = Process.Start(psi)
-            ?? throw new InvalidOperationException($"No se pudo iniciar: {command}");
+            ?? throw new InvalidOperationException($"No se pudo iniciar: {finalCommand}");
 
-        string stderr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit();
-        return (proc.ExitCode, stderr);
-    }
+        string stdout = "", stderr = "";
+        bool timedOut = false;
 
-    // Ejecuta un comando desde un directorio específico.
-    // Útil cuando el comando necesita usar rutas relativas.
-    public static (int ExitCode, string Stderr) Run(string workingDir, string command, string args)
-    {
-        var psi = new ProcessStartInfo(command, args)
+        if (!visible)
         {
-            WorkingDirectory = workingDir,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
+            // Modo silencioso: leer todo al final
+            stdout = proc.StandardOutput.ReadToEnd();
+            stderr = proc.StandardError.ReadToEnd();
+        }
 
-        using var proc = Process.Start(psi)
-            ?? throw new InvalidOperationException($"No se pudo iniciar: {command}");
-
-        string stderr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit();
-        return (proc.ExitCode, stderr);
-    }
-
-    // Ejecuta un comando mostrando el output en pantalla en tiempo real.
-    // Úsalo para comandos largos o interactivos donde el usuario necesita ver el progreso.
-    public static int RunVisible(string command, string args)
-    {
-        var psi = new ProcessStartInfo(command, args)
+        if (timeout > 0)
         {
-            UseShellExecute = false,
-        };
+            timedOut = !proc.WaitForExit(timeout * 1000);
+            if (timedOut) proc.Kill();
+        }
+        else
+        {
+            proc.WaitForExit();
+        }
 
-        using var proc = Process.Start(psi)!;
-        proc.WaitForExit();
-        return proc.ExitCode;
+        return (proc.ExitCode, stdout, stderr, timedOut);
     }
 
-    // Ejecuta un script de bash mostrando el output en pantalla.
-    // bash <ruta> ejecuta el archivo directamente sin necesitar -c
-    public static int Bash(string scriptPath)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Copia — archivo o carpeta, con o sin sudo
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // source    : origen
+    // dest      : destino
+    // asSudo    : usar sudo
+    // recursive : si es carpeta, copiar contenido recursivamente
+    // contents  : si true, copia el contenido de source dentro de dest (no source en sí)
+    //
+    // Retorna: (éxito, stdout, stderr)
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (bool Ok, string Stdout, string Stderr) Copy(
+        string source,
+        string dest,
+        bool asSudo = false,
+        bool recursive = false,
+        bool contents = false)
+    {
+        // Asegurar que el directorio padre del destino existe
+        string? destDir = Path.GetDirectoryName(dest);
+        if (destDir is not null)
+            Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
+
+        string flags = "--preserve=all";
+        if (recursive || contents)
+            flags = "-a";  // -a = -dR --preserve=all
+
+        string srcPath = contents ? $"\"{source}\"/." : $"\"{source}\"";
+        var (code, stdout, stderr, _) = Run("cp", $"{flags} {srcPath} \"{dest}\"", asSudo: asSudo);
+        return (code == 0, stdout, stderr);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Move — archivo o carpeta, con o sin sudo
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (bool Ok, string Stdout, string Stderr) Move(
+        string source,
+        string dest,
+        bool asSudo = false)
+    {
+        // Asegurar que el directorio padre del destino existe
+        string? destDir = Path.GetDirectoryName(dest);
+        if (destDir is not null)
+            Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
+
+        // Si el destino existe, borrarlo antes (mv no sobrescribe carpetas)
+        if (File.Exists(dest) || Directory.Exists(dest))
+            Run("rm", $"-rf \"{dest}\"", asSudo: asSudo);
+
+        var (code, stdout, stderr, _) = Run("mv", $"\"{source}\" \"{dest}\"", asSudo: asSudo);
+        return (code == 0, stdout, stderr);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Remove — archivo o carpeta, con o sin sudo
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (bool Ok, string Stdout, string Stderr) Remove(
+        string path,
+        bool asSudo = false)
+    {
+        var (code, stdout, stderr, _) = Run("rm", $"-rf \"{path}\"", asSudo: asSudo);
+        return (code == 0, stdout, stderr);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Symlink — crea un symlink en dest apuntando a source
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // force: si true, borra el destino si ya existe (archivo o carpeta real)
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (bool Ok, string Stdout, string Stderr) Symlink(
+        string source,
+        string dest,
+        bool asSudo = false,
+        bool force = true)
+    {
+        // Crear directorio padre del symlink
+        string? destDir = Path.GetDirectoryName(dest);
+        if (destDir is not null)
+            Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
+
+        // Si force y existe algo que no es symlink, borrarlo
+        if (force)
+        {
+            bool exists = File.Exists(dest) || Directory.Exists(dest);
+            bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
+            if (exists && !isSymlink)
+                Run("rm", $"-rf \"{dest}\"", asSudo: asSudo);
+        }
+
+        var (code, stdout, stderr, _) = Run("ln", $"-sf \"{source}\" \"{dest}\"", asSudo: asSudo);
+        return (code == 0, stdout, stderr);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Stow — aplica un paquete stow
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // delete: si true, elimina symlinks en vez de crearlos (-D)
+    // adopt : si true, adopta archivos existentes al repo (--adopt)
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (bool Ok, string Stdout, string Stderr) Stow(
+        string dotfilesDir,
+        string targetDir,
+        string package,
+        bool delete = false,
+        bool adopt = false)
+    {
+        string action = delete ? "-D" : "";
+        string adoptFlag = adopt ? "--adopt" : "";
+        var (code, stdout, stderr, _) = Run("stow",
+            $"--no-folding -d \"{dotfilesDir}\" -t \"{targetDir}\" {action} {adoptFlag} \"{package}\"");
+        return (code == 0, stdout, stderr);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Bash — ejecuta un script .sh
+    // ═══════════════════════════════════════════════════════════════════════
+    public static (int ExitCode, string Stdout, string Stderr, bool TimedOut) Bash(
+        string scriptPath,
+        bool visible = true,
+        int timeout = 0)
     {
         string? sudoUser = Environment.GetEnvironmentVariable("SUDO_USER");
         if (!string.IsNullOrEmpty(sudoUser))
-            return RunVisible("runuser", $"-u {sudoUser} -- /bin/bash \"{scriptPath}\"");
+            return Run("runuser", $"-u {sudoUser} -- /bin/bash \"{scriptPath}\"", visible: visible, timeout: timeout);
 
-        return RunVisible("/bin/bash", $"\"{scriptPath}\"");
-    }
-
-    // Aplica un paquete stow creando symlinks en homeDir.
-    // adopt: si un archivo real choca con el symlink que stow quiere crear,
-    // lo mueve al repo y crea el symlink en su lugar.
-    public static bool Stow(string dotfilesDir, string homeDir, string package, bool adopt = false)
-    {
-        string adoptFlag = adopt ? "--adopt" : "";
-        var (code, _) = Run("stow", $"--no-folding -d \"{dotfilesDir}\" -t \"{homeDir}\" {adoptFlag} \"{package}\"");
-        return code == 0;
-    }
-
-    // Elimina los symlinks de un paquete stow sin tocar los archivos del repo.
-    public static bool StowDelete(string dotfilesDir, string homeDir, string package)
-    {
-        var (code, _) = Run("stow", $"--no-folding -d \"{dotfilesDir}\" -t \"{homeDir}\" -D \"{package}\"");
-        return code == 0;
-    }
-
-    // Crea un symlink en dest apuntando a source, con sudo.
-    // Si en dest ya existe algo que no es symlink (archivo o carpeta real),
-    // lo borra primero porque ln -sf no puede reemplazar carpetas reales.
-    public static bool SudoSymlink(string source, string dest)
-    {
-        Run("sudo", $"mkdir -p \"{Path.GetDirectoryName(dest) ?? "/"}\"");
-
-        bool exists = File.Exists(dest) || Directory.Exists(dest);
-        bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
-        if (exists && !isSymlink)
-            Run("sudo", $"rm -rf \"{dest}\"");
-
-        var (code, _) = Run("sudo", $"ln -sf \"{source}\" \"{dest}\"");
-        return code == 0;
-    }
-
-    // Mueve un archivo o carpeta con sudo.
-    // Borra el destino antes si ya existe, porque mv falla con carpetas no vacías.
-    public static bool SudoMove(string source, string dest)
-    {
-        Run("sudo", $"mkdir -p \"{Path.GetDirectoryName(dest) ?? "/"}\"");
-
-        if (File.Exists(dest) || Directory.Exists(dest))
-            Run("sudo", $"rm -rf \"{dest}\"");
-
-        var (code, stderr) = Run("sudo", $"mv \"{source}\" \"{dest}\"");
-        if (code != 0) Console.WriteLine($"mv error: {stderr}");
-        return code == 0;
-    }
-
-    // Elimina un archivo, symlink o carpeta con sudo. -rf para no fallar con carpetas.
-    public static bool SudoRemove(string path)
-    {
-        var (code, _) = Run("sudo", $"rm -rf \"{path}\"");
-        return code == 0;
-    }
-
-    // Copia un archivo con sudo preservando permisos y timestamps originales.
-    public static bool SudoCopy(string source, string dest)
-    {
-        Run("sudo", $"mkdir -p \"{Path.GetDirectoryName(dest) ?? "/"}\"");
-        var (code, _) = Run("sudo", $"cp --preserve=all \"{source}\" \"{dest}\"");
-        return code == 0;
-    }
-
-    //Copia un archivo preservando todos sus atributos
-    public static bool Copy(string source, string dest)
-        => Run("cp", $"-f --preserve=all \"{source}\" \"{dest}\"").ExitCode == 0;
-
-    //Copia una carpeta preservando todos sus atributos
-    public static bool CopyDir(string source, string dest)
-    {
-        Run("mkdir", $"-p \"{dest}\"");
-        var (code, _) = Run("cp", $"-a \"{source}\"/. \"{dest}\"");
-        return code == 0;
-    }
-
-    // Copia una carpeta completa con sudo. -a equivale a -r --preserve=all.
-    public static bool SudoCopyDir(string source, string dest)
-    {
-        Run("sudo", $"mkdir -p \"{Path.GetDirectoryName(dest) ?? "/"}\"");
-        var (code, _) = Run("sudo", $"cp -a \"{source}\" \"{dest}\"");
-        return code == 0;
+        return Run("/bin/bash", $"\"{scriptPath}\"", visible: visible, timeout: timeout);
     }
 }

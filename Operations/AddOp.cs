@@ -96,7 +96,7 @@ internal static class AddOp
             return;
         }
 
-        if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package))
+        if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
             summary.TrackOk($"Symlink creado en: ~/{rel}");
         else
             summary.TrackErr("stow falló al crear el symlink.");
@@ -129,14 +129,14 @@ internal static class AddOp
         Printer.Info("Haciendo backup del archivo original...");
         if (!Backup.BackupSystemFile(path, Env.BackupDir + "_AddSystemAction")) return;
 
-        if (!Shell.SudoMove(path, destInRepo))
+        if (!Shell.Move(path, destInRepo, true).Ok)
         {
             summary.TrackErr("No se pudo mover el archivo.");
             return;
         }
         summary.TrackOk($"Movido a: {destInRepo}");
 
-        if (Shell.SudoSymlink(destInRepo, path))
+        if (Shell.Symlink(destInRepo, path, true).Ok)
             summary.TrackOk($"Symlink creado en: {path}");
         else
             summary.TrackErr("No se pudo crear el symlink.");
