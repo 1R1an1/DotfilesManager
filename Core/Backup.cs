@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DotfilesManager.UI;
 
 namespace DotfilesManager.Core;
@@ -51,22 +50,25 @@ internal static class Backup
         return filesBackedup;
     }
 
-    // Hace backup de un archivo en home. Si falla, registra el error en summary
+    // Hace backup de un archivo o carpeta en home. Si falla, registra el error en summary
     // (si se pasó uno) o imprime un warning.
     public static bool BackupHomeFile(string absolutePath, string backupDir, Summary? summary = null)
     {
         string rel = Path.GetRelativePath(Env.HomeDir, absolutePath);
         string dest = Path.Combine(backupDir, "home", rel);
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-        try
+
+        bool isDir = Directory.Exists(absolutePath);
+        var (ok, _, stderr) = Shell.Copy(absolutePath, dest, recursive: isDir, contents: false);
+
+        if (ok)
         {
-            Shell.Copy(absolutePath, dest);
             Printer.Info($"Backup: {absolutePath} → {dest}");
             return true;
         }
-        catch (Exception ex)
+        else
         {
-            string msg = $"No se pudo hacer backup de: {absolutePath} ({ex.Message})";
+            string msg = $"No se pudo hacer backup de: {absolutePath} ({stderr})";
             if (summary != null) summary.TrackErr(msg);
             else Printer.Warn(msg);
             return false;
