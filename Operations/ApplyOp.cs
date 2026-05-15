@@ -11,15 +11,64 @@ internal static class ApplyOp
 
         // Crear el directorio de backup con timestamp para esta sesión.
         // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
-        string? backupDir = Env.BackupDir + "_applyAction";
+        string backupDir = Env.BackupDir + "_applyAction";
 
+        // ── Elegir qué aplicar ────────────────────────────────────────────
+        Console.Clear();
+        Printer.Header("Aplicar dotfiles");
+
+        bool hasHomePackages = Env.GetPackages().Length > 0;
+        bool hasSystemFiles = Directory.Exists(Env.SystemDir) &&
+                              Directory.EnumerateFileSystemEntries(Env.SystemDir).Any();
+
+        if (!hasHomePackages && !hasSystemFiles)
+        {
+            Printer.Error("No hay paquetes stow ni archivos de sistema disponibles.");
+            Printer.PressEnterToContinue();
+            return;
+        }
+
+        // Construir las opciones dinámicamente según lo que exista
+        List<string> applyOptions = new();
+        if (hasHomePackages) applyOptions.Add("Paquetes de home (stow)");
+        if (hasSystemFiles) applyOptions.Add("Symlinks de sistema (system/)");
+        applyOptions.Add("Ambos");
+
+        int applyChoice = Menu.SelectOne("¿Qué querés aplicar?", applyOptions.ToArray());
+
+        Console.Clear();
+        Printer.Header("Aplicar dotfiles");
+
+        if (applyChoice == -1) return;
+
+        bool applyHome = applyChoice == 0 || applyChoice == 2;
+        bool applySystem = applyChoice == 1 || applyChoice == 2;
+
+        // ── Aplicar paquetes de home ──────────────────────────────────────
+        if (applyHome && hasHomePackages)
+        {
+            ApplyHomePackages(summary, backupDir);
+        }
+
+        // ── Aplicar symlinks de sistema ───────────────────────────────────
+        if (applySystem && hasSystemFiles)
+        {
+            ApplySystemSymlinks(summary, backupDir);
+        }
+
+        summary.Print();
+        Printer.PressEnterToContinue();
+    }
+
+    // ── Paquetes de home (stow) ──────────────────────────────────────────────
+
+    private static void ApplyHomePackages(Summary summary, string backupDir)
+    {
         string[] packages = Env.GetPackages();
         if (packages.Length == 0)
         {
-            Console.Clear();
-            Printer.Header("Aplicar dotfiles");
             Printer.Error("No hay paquetes stow disponibles.");
-            goto system;
+            return;
         }
 
         int[] selected = Menu.SelectMulti("Aplicar dotfiles — seleccioná paquetes", packages);
@@ -30,7 +79,7 @@ internal static class ApplyOp
         if (selected.Length == 0)
         {
             Printer.Warn("No seleccionaste ningún paquete.");
-            goto system;
+            return;
         }
 
         string[] chosenPackages = selected.Select(i => packages[i]).ToArray();
@@ -39,18 +88,13 @@ internal static class ApplyOp
         Printer.Info($"Paquetes seleccionados: {string.Join(", ", chosenPackages)}");
 
         if (!Menu.Confirm("¿Aplicar estos paquetes?"))
-        {
-            Printer.PressEnterToContinue();
             return;
-        }
 
         Console.WriteLine();
         Printer.Info("Haciendo backup de archivos existentes...");
         foreach (string pkg in chosenPackages)
             foreach (var i in Backup.BackupPackage(pkg, backupDir))
                 File.Delete(i);
-
-
 
         Console.WriteLine();
         Printer.Info("Aplicando symlinks...");
@@ -68,19 +112,9 @@ internal static class ApplyOp
             else
                 summary.TrackErr($"stow falló: {pkg}");
         }
-
-    system:
-        if (Directory.Exists(Env.SystemDir) &&
-            Directory.EnumerateFileSystemEntries(Env.SystemDir).Any())
-        {
-            Console.WriteLine();
-            if (Menu.Confirm("¿Aplicar también symlinks de sistema?"))
-                ApplySystemSymlinks(summary, backupDir);
-        }
-
-        summary.Print();
-        Printer.PressEnterToContinue();
     }
+
+    // ── Symlinks de sistema (system/) ────────────────────────────────────────
 
     private static void ApplySystemSymlinks(Summary summary, string backupDir)
     {
@@ -105,6 +139,7 @@ internal static class ApplyOp
         {
             if (Directory.Exists(entryInRepo))
             {
+                // Si es carpeta, hacer backup de cada archivo adentro
                 foreach (string file in Directory.EnumerateFiles(entryInRepo, "*", SearchOption.AllDirectories))
                 {
                     string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
@@ -113,6 +148,7 @@ internal static class ApplyOp
             }
             else
             {
+                // Si es archivo, backup directo
                 string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
                 if (!Backup.BackupSystemFile(dest, backupDir, summary)) return;
             }
