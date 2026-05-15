@@ -4,25 +4,17 @@ namespace DotfilesManager.Core;
 
 internal static class Shell
 {
-    // ═══════════════════════════════════════════════════════════════════════
-    // Método ÚNICO de ejecución — hace todo
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // Parámetros:
-    //   command    : el binario (ej: "cp", "ln", "stow")
-    //   args       : los argumentos
-    //   workingDir : directorio de trabajo (null = actual)
-    //   asSudo     : antepone "sudo" al comando
-    //   asUser     : ejecuta como el usuario real (útil cuando la app corre con sudo)
-    //   visible    : muestra output en pantalla en tiempo real
-    //   timeout    : tiempo máximo en segundos (0 = sin límite)
-    //
-    // Retorna:
-    //   ExitCode   : 0 = éxito
-    //   Stdout     : salida estándar completa
-    //   Stderr     : salida de error completa
-    //   TimedOut   : true si se mató por timeout
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Ejecuta un comando. Método ÚNICO para todo.
+    /// </summary>
+    /// <param name="command">El binario a ejecutar (ej: "cp", "ln", "stow")</param>
+    /// <param name="args">Los argumentos del comando</param>
+    /// <param name="workingDir">Directorio de trabajo (null = actual)</param>
+    /// <param name="asSudo">Si true, antepone "sudo" al comando</param>
+    /// <param name="asUser">Si true, ejecuta como el usuario real (útil cuando la app corre con sudo)</param>
+    /// <param name="visible">Si true, muestra el output en pantalla en tiempo real</param>
+    /// <param name="timeout">Tiempo máximo en segundos (0 = sin límite)</param>
+    /// <returns>Tupla con ExitCode, Stdout, Stderr y TimedOut (true si se mató por timeout)</returns>
     public static (int ExitCode, string Stdout, string Stderr, bool TimedOut) Run(
         string command,
         string args,
@@ -88,18 +80,15 @@ internal static class Shell
         return (proc.ExitCode, stdout, stderr, timedOut);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Copia — archivo o carpeta, con o sin sudo
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // source    : origen
-    // dest      : destino
-    // asSudo    : usar sudo
-    // recursive : si es carpeta, copiar contenido recursivamente
-    // contents  : si true, copia el contenido de source dentro de dest (no source en sí)
-    //
-    // Retorna: (éxito, stdout, stderr)
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Copia un archivo o carpeta, con o sin sudo.
+    /// </summary>
+    /// <param name="source">Ruta de origen</param>
+    /// <param name="dest">Ruta de destino</param>
+    /// <param name="asSudo">Si true, usa sudo</param>
+    /// <param name="recursive">Si true, copia recursivamente (para carpetas)</param>
+    /// <param name="contents">Si true, copia el contenido de source dentro de dest (no source en sí)</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Copy(
         string source,
         string dest,
@@ -121,9 +110,13 @@ internal static class Shell
         return (code == 0, stdout, stderr);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Move — archivo o carpeta, con o sin sudo
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Mueve un archivo o carpeta, con o sin sudo.
+    /// </summary>
+    /// <param name="source">Ruta de origen</param>
+    /// <param name="dest">Ruta de destino</param>
+    /// <param name="asSudo">Si true, usa sudo</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Move(
         string source,
         string dest,
@@ -142,9 +135,12 @@ internal static class Shell
         return (code == 0, stdout, stderr);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Remove — archivo o carpeta, con o sin sudo
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Elimina un archivo o carpeta, con o sin sudo. Usa rm -rf.
+    /// </summary>
+    /// <param name="path">Ruta a eliminar</param>
+    /// <param name="asSudo">Si true, usa sudo</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Remove(
         string path,
         bool asSudo = false)
@@ -153,12 +149,14 @@ internal static class Shell
         return (code == 0, stdout, stderr);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Symlink — crea un symlink en dest apuntando a source
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // force: si true, borra el destino si ya existe (archivo o carpeta real)
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Crea un symlink en dest apuntando a source.
+    /// </summary>
+    /// <param name="source">Ruta a la que apunta el symlink</param>
+    /// <param name="dest">Ruta donde se crea el symlink</param>
+    /// <param name="asSudo">Si true, usa sudo</param>
+    /// <param name="force">Si true, borra el destino si ya existe y no es symlink</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Symlink(
         string source,
         string dest,
@@ -183,13 +181,15 @@ internal static class Shell
         return (code == 0, stdout, stderr);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Stow — aplica un paquete stow
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // delete: si true, elimina symlinks en vez de crearlos (-D)
-    // adopt : si true, adopta archivos existentes al repo (--adopt)
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Aplica o elimina un paquete stow.
+    /// </summary>
+    /// <param name="dotfilesDir">Directorio del repo de dotfiles</param>
+    /// <param name="targetDir">Directorio donde se crean/eliminan los symlinks</param>
+    /// <param name="package">Nombre del paquete</param>
+    /// <param name="delete">Si true, elimina symlinks (-D) en vez de crearlos</param>
+    /// <param name="adopt">Si true, adopta archivos existentes al repo (--adopt)</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
     public static (bool Ok, string Stdout, string Stderr) Stow(
         string dotfilesDir,
         string targetDir,
@@ -204,9 +204,13 @@ internal static class Shell
         return (code == 0, stdout, stderr);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Bash — ejecuta un script .sh
-    // ═══════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Ejecuta un script .sh con bash.
+    /// </summary>
+    /// <param name="scriptPath">Ruta absoluta al script</param>
+    /// <param name="visible">Si true, muestra el output en tiempo real</param>
+    /// <param name="timeout">Tiempo máximo en segundos (0 = sin límite)</param>
+    /// <returns>Tupla con ExitCode, Stdout, Stderr y TimedOut</returns>
     public static (int ExitCode, string Stdout, string Stderr, bool TimedOut) Bash(
         string scriptPath,
         bool visible = true,
