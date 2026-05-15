@@ -6,7 +6,8 @@ namespace DotfilesManager.UI;
 // Todos los mensajes tienen un ícono de color a la izquierda para identificar el tipo.
 internal static class Printer
 {
-    public static string color = Cyan;
+    public const string defaultColor = Green;
+    public static string color = defaultColor;
     public static void Info(string msg) => Console.WriteLine($"  {Cyan}●{Reset} {msg}");
     public static void Success(string msg) => Console.WriteLine($"  {Green}✔{Reset} {msg}");
     public static void Warn(string msg) => Console.WriteLine($"  {Yellow}!{Reset} {msg}");

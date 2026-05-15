@@ -116,23 +116,17 @@ internal static class DeleteOp
 
     private static void DeleteSystemSymlink(Summary summary)
     {
-        Console.WriteLine();
-        Console.Write("  Ruta del symlink a eliminar: ");
-        string? path = Console.ReadLine()?.Trim();
+        // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
+        string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a eliminar", Env.SystemDir);
 
-        if (string.IsNullOrEmpty(path)) { Printer.Error("Ruta vacía."); return; }
+        Console.Clear();
+        Printer.Header("Borrar symlinks");
 
-        bool exists = File.Exists(path) || Directory.Exists(path);
-        bool isSymlink = exists && new FileInfo(path).Attributes.HasFlag(FileAttributes.ReparsePoint);
-
-        if (!isSymlink)
+        if (selected.Length == 0)
         {
-            Printer.Error(exists ? $"'{path}' existe pero no es un symlink." : $"'{path}' no existe.");
+            Printer.Warn("No seleccionaste ningún symlink de sistema.");
             return;
         }
-
-        // LinkTarget retorna la ruta a la que apunta el symlink
-        string? repoFile = new FileInfo(path).LinkTarget;
 
         string[] actions =
         [
@@ -141,7 +135,7 @@ internal static class DeleteOp
             "Eliminar todo (symlink + archivo del repo)",
         ];
 
-        int actionIdx = Menu.SelectOne($"¿Qué querés hacer con '{path}'?", actions);
+        int actionIdx = Menu.SelectOne($"¿Qué querés hacer con {selected.Length} elemento(s)?", actions);
 
         Console.Clear();
         Printer.Header("Borrar symlinks");
@@ -151,39 +145,49 @@ internal static class DeleteOp
         switch (actionIdx)
         {
             case 0:
-                if (!Menu.Confirm($"¿Eliminar symlink '{path}'? El archivo queda en el repo.")) return;
-                if (Shell.Remove(path, true).Ok)
-                    summary.TrackOk($"Symlink eliminado: {path}");
-                else
-                    summary.TrackErr($"No se pudo eliminar: {path}");
+                if (!Menu.Confirm($"¿Eliminar {selected.Length} symlink(s)? Los archivos quedan en el repo.")) return;
+                foreach (string entry in selected)
+                {
+                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
+                    if (Shell.Remove(systemPath, true).Ok)
+                        summary.TrackOk($"Symlink eliminado: {systemPath}");
+                    else
+                        summary.TrackErr($"No se pudo eliminar: {systemPath}");
+                }
                 break;
 
             case 1:
-                if (!Menu.Confirm($"¿Restaurar '{repoFile}' a '{path}' y eliminar el symlink?")) return;
-                Shell.Remove(path, true);
+                if (!Menu.Confirm($"¿Restaurar {selected.Length} archivo(s) y eliminar symlinks?")) return;
+                foreach (string entry in selected)
+                {
+                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
+                    Shell.Remove(systemPath, true);
 
-                bool copied = repoFile is not null && (
-                    Directory.Exists(repoFile)
-                        ? Shell.Copy(repoFile, path, asSudo: true, recursive: true).Ok
-                        : Shell.Copy(repoFile, path, asSudo: true).Ok
-                );
+                    bool copied = Directory.Exists(entry)
+                        ? Shell.Copy(entry, systemPath, asSudo: true, recursive: true).Ok
+                        : Shell.Copy(entry, systemPath, asSudo: true).Ok;
 
-                if (copied) summary.TrackOk($"Archivo restaurado: {path}");
-                else summary.TrackErr($"Falló la restauración de: {path}");
+                    if (copied) summary.TrackOk($"Archivo restaurado: {systemPath}");
+                    else summary.TrackErr($"Falló la restauración de: {systemPath}");
+                }
                 break;
 
             case 2:
-                if (!Menu.Confirm($"¿Eliminar symlink Y archivo del repo '{repoFile}'? Sin vuelta atrás.")) return;
+                if (!Menu.Confirm($"¿Eliminar symlinks Y archivos del repo? Sin vuelta atrás.")) return;
+                foreach (string entry in selected)
+                {
+                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
 
-                if (Shell.Remove(path, true).Ok)
-                    summary.TrackOk($"Symlink eliminado: {path}");
-                else
-                    summary.TrackErr($"No se pudo eliminar el symlink: {path}");
+                    if (Shell.Remove(systemPath, true).Ok)
+                        summary.TrackOk($"Symlink eliminado: {systemPath}");
+                    else
+                        summary.TrackErr($"No se pudo eliminar el symlink: {systemPath}");
 
-                if (repoFile is not null && Shell.Remove(repoFile, true).Ok)
-                    summary.TrackOk($"Archivo del repo eliminado: {repoFile}");
-                else
-                    summary.TrackErr($"No se pudo eliminar del repo: {repoFile}");
+                    if (Shell.Remove(entry, true).Ok)
+                        summary.TrackOk($"Archivo del repo eliminado: {entry}");
+                    else
+                        summary.TrackErr($"No se pudo eliminar del repo: {entry}");
+                }
                 break;
         }
     }

@@ -15,26 +15,49 @@ Env.LoadOrInit();
 
 var summary = new Summary();
 
-string[] mainOptions =
-[
-    "Aplicar / instalar dotfiles",
-    "Ver estado de symlinks",
-    "Borrar symlinks",
-    "Agregar archivo al repo",
-    "Ejecutar script",
-];
+
 
 while (true)
 {
-    int choice = Menu.SelectOne("Dotfiles Manager", mainOptions);
+    string[] options =
+    [
+        "Symlinks",
+        "Ejecutar script"
+    ];
+
+    int choice = Menu.SelectOne("Dotfiles Manager", options);
 
     switch (choice)
     {
         case -1: Console.WriteLine(); return;
-        case 0: ApplyOp.Run(summary); break;
-        case 1: StatusOp.Run(); break;
-        case 2: DeleteOp.Run(summary); break;
-        case 3: AddOp.Run(summary); break;
-        case 4: ExecuteOp.Run(summary); break;
+        case 0:
+            bool Lbreak = true;
+            while (Lbreak)
+            {
+                options =
+                [
+                    "Aplicar / instalar dotfiles",
+                    "Ver estado de symlinks",
+                    "Borrar symlinks",
+                    "Agregar archivo al repo"
+                ];
+                Printer.color = Colors.Red;
+                choice = Menu.SelectOne("Symlinks Manager", options);
+                switch (choice)
+                {
+                    case -1: Lbreak = false; break;
+                    case 0: ApplyOp.Run(summary); break;
+                    case 1: StatusOp.Run(); break;
+                    case 2: DeleteOp.Run(summary); break;
+                    case 3: AddOp.Run(summary); break;
+                }
+                Printer.color = Printer.defaultColor;
+            }
+            break;
+        case 1:
+            Printer.color = Colors.Yellow;
+            ExecuteOp.Run(summary);
+            Printer.color = Printer.defaultColor;
+            break;
     }
 }
