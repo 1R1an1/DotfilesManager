@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using DotfilesManager.Core;
 using DotfilesManager.UI;
 
@@ -57,6 +59,31 @@ internal static class ApplyProfileOp
         Console.WriteLine();
         Printer.Info($"Aplicando perfil: {perfil.Nombre}");
 
+        // ── Verificar/instalar yay UNA SOLA VEZ ──────────────────────────
+        if (!Shell.YayInstalled())
+        {
+            Printer.Warn("yay no está instalado. Instalando...");
+            if (!Shell.InstallYay())
+            {
+                Printer.Error("No se pudo instalar yay. Abortando perfil.");
+                summary?.TrackErr("No se pudo instalar yay.");
+                return;
+            }
+            Printer.Success("yay instalado.");
+        }
+        else
+        {
+            Printer.Info("yay encontrado.");
+        }
+
+        // ── Actualizar sistema UNA SOLA VEZ ──────────────────────────────
+        Printer.Info("Actualizando sistema...");
+        if (!Shell.UpdateSystem())
+        {
+            Printer.Warn("Falló la actualización del sistema, continuando...");
+        }
+
+        // ── Ejecutar pasos en secuencia ──────────────────────────────────
         for (int i = 0; i < perfil.Pasos.Count; i++)
         {
             var paso = perfil.Pasos[i];
@@ -82,6 +109,7 @@ internal static class ApplyProfileOp
         summary?.TrackOk($"Perfil '{name}' aplicado.");
     }
 
+    // ── Paso: Script ────────────────────────────────────────────────────
     private static bool ExecuteScriptStep(ProfileStep paso, Summary? summary)
     {
         string scriptName = paso.Valor.Trim();
@@ -107,29 +135,9 @@ internal static class ApplyProfileOp
         return true;
     }
 
+    // ── Paso: Package (yay) ─────────────────────────────────────────────
     private static bool ExecutePackageStep(ProfileStep paso, Summary? summary)
     {
-        // Verificar yay
-        if (!Shell.YayInstalled())
-        {
-            Printer.Warn("yay no está instalado. Instalando...");
-            if (!Shell.InstallYay())
-            {
-                Printer.Error("No se pudo instalar yay.");
-                summary?.TrackErr("No se pudo instalar yay.");
-                return false;
-            }
-            Printer.Success("yay instalado.");
-        }
-
-        // Actualizar sistema (como antes)
-        Printer.Info("Actualizando sistema...");
-        if (!Shell.UpdateSystem())
-        {
-            Printer.Warn("Falló la actualización del sistema, continuando...");
-            // no detenemos, solo warning
-        }
-
         string[] packages = paso.ObtenerItems();
         if (packages.Length == 0)
         {
