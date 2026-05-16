@@ -44,6 +44,8 @@ internal static class ApplyProfileOp
             if (!Shell.YayInstalled())
             {
                 Printer.Warn("yay no está instalado. Instalando...");
+                Printer.PressEnterToContinue();
+
                 if (Shell.InstallYay())
                     summary.TrackOk("yay instalado.");
                 else
@@ -69,6 +71,7 @@ internal static class ApplyProfileOp
             // Instalar paquetes
             Console.WriteLine();
             Printer.Info($"Instalando {perfil.Paquetes.Count} paquete(s)...");
+            Printer.PressEnterToContinue();
 
             if (Shell.InstallPackages([.. perfil.Paquetes]))
                 summary.TrackOk($"Paquetes instalados: {string.Join(", ", perfil.Paquetes)}");
@@ -83,6 +86,7 @@ internal static class ApplyProfileOp
         {
             Console.WriteLine();
             Printer.Info($"Aplicando {perfil.Dotfiles.Count} paquete(s) de dotfiles...");
+            Printer.PressEnterToContinue();
             Console.WriteLine();
 
             foreach (string pkg in perfil.Dotfiles)

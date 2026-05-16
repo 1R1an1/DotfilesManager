@@ -1,15 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Text;
+using DotfilesManager.Core;
 using static DotfilesManager.UI.Colors;
 
 namespace DotfilesManager.UI;
 
 internal static class PackageSearch
 {
-    private const int ReservedRows = 10;
+    private const int ReservedRows = 11;
 
     public static string[] Run(string title, IEnumerable<string> preselected)
     {
@@ -156,17 +153,12 @@ internal static class PackageSearch
     {
         try
         {
-            var psi = new ProcessStartInfo("yay", "-Qq")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-            using var proc = Process.Start(psi)!;
-            string output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit();
+            var (code, stdout, stderr, _) = Shell.Run("yay", "-Qq", asUser: true);
 
-            return output
+            if (code != 0)
+                return [];
+
+            return stdout
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => p.Trim())
                 .OrderBy(p => p)
