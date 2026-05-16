@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DotfilesManager.Core;
@@ -10,7 +11,6 @@ internal static class EditProfileOp
     public static void Run(Summary summary)
     {
         var profiles = ProfileStore.Load();
-
         if (profiles.Count == 0)
         {
             Console.Clear();
@@ -24,147 +24,197 @@ internal static class EditProfileOp
         if (idx == -1) return;
 
         var perfil = profiles[idx];
+        EditarPerfil(perfil, profiles, summary);
+    }
 
-        string[] editOptions = ["Cambiar nombre", "Editar paquetes", "Editar dotfiles"];
-
+    private static void EditarPerfil(Profile perfil, List<Profile> allProfiles, Summary summary)
+    {
         while (true)
         {
-            int action = Menu.SelectOne($"Editando: {perfil.Nombre}", editOptions);
-            if (action == -1) break;
+            string[] options = ["Ver pasos", "Agregar paso", "Editar paso", "Eliminar paso", "Mover paso", "Cambiar nombre", "── Volver ──"];
+            int choice = Menu.SelectOne($"Editando: {perfil.Nombre}", options);
+            if (choice == -1 || choice == options.Length - 1) break;
 
-            switch (action)
+            switch (choice)
             {
-                case 0: EditarNombre(perfil, profiles, summary); break;
-                case 1: EditarPaquetes(perfil, profiles, summary); break;
-                case 2: EditarDotfiles(perfil, profiles, summary); break;
+                case 0: VerPasos(perfil); break;
+                case 1: AgregarPaso(perfil); break;
+                case 2: EditarPaso(perfil); break;
+                case 3: EliminarPaso(perfil); break;
+                case 4: MoverPaso(perfil); break;
+                case 5: CambiarNombre(perfil, allProfiles); break;
             }
+            ProfileStore.Save(allProfiles);
         }
     }
 
-    private static void EditarNombre(Profile perfil, List<Profile> profiles, Summary summary)
+    private static void VerPasos(Profile perfil)
     {
         Console.Clear();
-        Printer.Header("Cambiar nombre");
+        Printer.Header($"Pasos de {perfil.Nombre}");
+        if (perfil.Pasos.Count == 0)
+        {
+            Console.WriteLine("  No hay pasos.");
+        }
+        else
+        {
+            for (int i = 0; i < perfil.Pasos.Count; i++)
+            {
+                var paso = perfil.Pasos[i];
+                Console.WriteLine($"  {i + 1}. [{paso.Tipo}] {paso.Valor}");
+            }
+        }
+        Printer.PressEnterToContinue();
+    }
 
-        Console.Write("  Nuevo nombre: ");
+    private static void AgregarPaso(Profile perfil)
+    {
+        string[] tipos = ["Script", "Dotfile (stow)", "Package (yay)"];
+        int tipoIdx = Menu.SelectOne("Tipo de paso", tipos);
+        if (tipoIdx == -1) return;
+
+        StepType tipo = tipoIdx switch { 0 => StepType.Script, 1 => StepType.Dotfile, 2 => StepType.Package, _ => StepType.Script };
+        string valor = "";
+
+        switch (tipo)
+        {
+            case StepType.Script:
+                Console.Write("Nombre del script: ");
+                valor = Console.ReadLine()?.Trim() ?? "";
+                break;
+            case StepType.Dotfile:
+                string[] dotfiles = Env.GetPackages();
+                if (dotfiles.Length == 0) { Printer.Warn("No hay paquetes stow."); return; }
+                int[] sel = Menu.SelectMulti("Seleccioná dotfiles", dotfiles);
+                valor = string.Join(",", sel.Select(i => dotfiles[i]));
+                break;
+            case StepType.Package:
+                var pkgs = PackageSearch.Run("Seleccioná paquetes", []);
+                valor = string.Join(",", pkgs);
+                break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(valor))
+            perfil.Pasos.Add(new ProfileStep { Tipo = tipo, Valor = valor });
+    }
+
+    private static void EditarPaso(Profile perfil)
+    {
+        if (perfil.Pasos.Count == 0) { Printer.Warn("No hay pasos."); return; }
+        string[] nombres = perfil.Pasos.Select((p, i) => $"{i + 1}. [{p.Tipo}] {p.Valor}").ToArray();
+        int idx = Menu.SelectOne("Seleccioná paso a editar", nombres);
+        if (idx == -1) return;
+
+        var paso = perfil.Pasos[idx];
+        // Editar valor según tipo
+        switch (paso.Tipo)
+        {
+            case StepType.Script:
+                Console.Write($"Nuevo nombre de script ({paso.Valor}): ");
+                string? nuevo = Console.ReadLine()?.Trim();
+                if (!string.IsNullOrWhiteSpace(nuevo)) paso.Valor = nuevo;
+                break;
+            case StepType.Dotfile:
+                string[] dotfiles = Env.GetPackages();
+                bool[] presel = dotfiles.Select(d => paso.ObtenerItems().Contains(d)).ToArray();
+                int[] sel = Menu.SelectMulti("Seleccioná dotfiles", dotfiles, presel);
+                paso.Valor = string.Join(",", sel.Select(i => dotfiles[i]));
+                break;
+            case StepType.Package:
+                var pkgs = PackageSearch.Run("Seleccioná paquetes", paso.ObtenerItems());
+                paso.Valor = string.Join(",", pkgs);
+                break;
+        }
+    }
+
+    private static void EliminarPaso(Profile perfil)
+    {
+        if (perfil.Pasos.Count == 0) { Printer.Warn("No hay pasos."); return; }
+        string[] nombres = perfil.Pasos.Select((p, i) => $"{i + 1}. [{p.Tipo}] {p.Valor}").ToArray();
+        int idx = Menu.SelectOne("Seleccioná paso a eliminar", nombres);
+        if (idx != -1 && Menu.Confirm($"¿Eliminar paso {idx + 1}?"))
+            perfil.Pasos.RemoveAt(idx);
+    }
+
+    private static void MoverPaso(Profile perfil)
+    {
+        if (perfil.Pasos.Count < 2) { Printer.Warn("Se necesitan al menos 2 pasos."); return; }
+        string[] nombres = perfil.Pasos.Select((p, i) => $"{i + 1}. [{p.Tipo}] {p.Valor}").ToArray();
+        int idx = Menu.SelectOne("Seleccioná paso a mover", nombres);
+        if (idx == -1) return;
+
+        string[] direcciones = ["Subir", "Bajar"];
+        int dir = Menu.SelectOne("Dirección", direcciones);
+        if (dir == -1) return;
+
+        int newIdx = idx;
+        if (dir == 0 && idx > 0) newIdx = idx - 1;
+        else if (dir == 1 && idx < perfil.Pasos.Count - 1) newIdx = idx + 1;
+
+        if (newIdx != idx)
+        {
+            var paso = perfil.Pasos[idx];
+            perfil.Pasos.RemoveAt(idx);
+            perfil.Pasos.Insert(newIdx, paso);
+            Printer.Success("Paso movido.");
+        }
+    }
+
+    private static void CambiarNombre(Profile perfil, List<Profile> allProfiles)
+    {
+        Console.Write($"  Nuevo nombre [{perfil.Nombre}]: ");
         string? nuevo = Console.ReadLine()?.Trim();
 
-        if (nuevo is null || nuevo == perfil.Nombre) return;
-
-        if (profiles.Any(p => p.Nombre == nuevo))
+        if (!string.IsNullOrWhiteSpace(nuevo) && nuevo != perfil.Nombre)
         {
-            Printer.Error($"Ya existe un perfil con el nombre '{nuevo}'.");
-            Printer.PressEnterToContinue();
-            return;
+            if (allProfiles.Any(p => p.Nombre == nuevo))
+            {
+                Printer.Error($"Ya existe un perfil con el nombre '{nuevo}'.");
+                return;
+            }
+            perfil.Nombre = nuevo;
+            Printer.Success($"Nombre cambiado a '{nuevo}'.");
         }
-
-        perfil.Nombre = nuevo;
-        ProfileStore.Save(profiles);
-        summary.TrackOk($"Nombre cambiado a '{nuevo}'.");
-        summary.Print();
-        Printer.PressEnterToContinue();
     }
 
-    private static void EditarPaquetes(Profile perfil, List<Profile> profiles, Summary summary)
-    {
-        string[] result = PackageSearch.Run(
-            $"Paquetes — {perfil.Nombre}",
-            perfil.Paquetes
-        );
-
-        perfil.Paquetes = result.ToList();
-        ProfileStore.Save(profiles);
-        summary.TrackOk("Paquetes actualizados.");
-        summary.Print();
-        Printer.PressEnterToContinue();
-    }
-
-    private static void EditarDotfiles(Profile perfil, List<Profile> profiles, Summary summary)
-    {
-        string[] allPkgs = Env.GetPackages();
-        if (allPkgs.Length == 0)
-        {
-            Console.Clear();
-            Printer.Header("Editar dotfiles");
-            Printer.Warn("No hay paquetes stow en el repo.");
-            Printer.PressEnterToContinue();
-            return;
-        }
-
-        bool[] presel = allPkgs.Select(p => perfil.Dotfiles.Contains(p)).ToArray();
-        int[] selected = Menu.SelectMulti(
-            $"Dotfiles — {perfil.Nombre}",
-            allPkgs,
-            presel
-        );
-
-        perfil.Dotfiles = selected.Select(i => allPkgs[i]).ToList();
-        ProfileStore.Save(profiles);
-        summary.TrackOk("Dotfiles actualizados.");
-        summary.Print();
-        Printer.PressEnterToContinue();
-    }
-
-    /// <summary>
-    /// Cambia el nombre de un perfil sin interfaz interactiva.
-    /// </summary>
+    // Métodos CLI sin UI (solo los necesarios)
     public static void EditName(string oldName, string newName)
     {
         var profiles = ProfileStore.Load();
         var perfil = profiles.FirstOrDefault(p => p.Nombre == oldName);
-
-        if (perfil is null)
-        {
-            Printer.Error($"Perfil '{oldName}' no encontrado.");
-            return;
-        }
-
-        if (profiles.Any(p => p.Nombre == newName))
-        {
-            Printer.Error($"Ya existe un perfil con el nombre '{newName}'.");
-            return;
-        }
-
+        if (perfil is null) { Printer.Error($"Perfil '{oldName}' no encontrado."); return; }
+        if (profiles.Any(p => p.Nombre == newName)) { Printer.Error($"Ya existe '{newName}'."); return; }
         perfil.Nombre = newName;
         ProfileStore.Save(profiles);
-        Printer.Success($"Nombre cambiado de '{oldName}' a '{newName}'.");
+        Printer.Success($"Nombre cambiado a '{newName}'.");
     }
 
-    /// <summary>
-    /// Edita los paquetes de un perfil sin interfaz interactiva.
-    /// </summary>
     public static void EditPackages(string name, string[] packages)
     {
+        // Buscar primer paso Package y reemplazar
         var profiles = ProfileStore.Load();
         var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
-
-        if (perfil is null)
-        {
-            Printer.Error($"Perfil '{name}' no encontrado.");
-            return;
-        }
-
-        perfil.Paquetes = [.. packages];
+        if (perfil is null) { Printer.Error($"Perfil '{name}' no encontrado."); return; }
+        var paso = perfil.Pasos.FirstOrDefault(p => p.Tipo == StepType.Package);
+        if (paso is null)
+            perfil.Pasos.Add(new ProfileStep { Tipo = StepType.Package, Valor = string.Join(",", packages) });
+        else
+            paso.Valor = string.Join(",", packages);
         ProfileStore.Save(profiles);
-        Printer.Success($"Paquetes de '{name}' actualizados.");
+        Printer.Success("Paquetes actualizados.");
     }
 
-    /// <summary>
-    /// Edita los dotfiles de un perfil sin interfaz interactiva.
-    /// </summary>
     public static void EditDotfiles(string name, string[] dotfiles)
     {
         var profiles = ProfileStore.Load();
         var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
-
-        if (perfil is null)
-        {
-            Printer.Error($"Perfil '{name}' no encontrado.");
-            return;
-        }
-
-        perfil.Dotfiles = [.. dotfiles];
+        if (perfil is null) { Printer.Error($"Perfil '{name}' no encontrado."); return; }
+        var paso = perfil.Pasos.FirstOrDefault(p => p.Tipo == StepType.Dotfile);
+        if (paso is null)
+            perfil.Pasos.Add(new ProfileStep { Tipo = StepType.Dotfile, Valor = string.Join(",", dotfiles) });
+        else
+            paso.Valor = string.Join(",", dotfiles);
         ProfileStore.Save(profiles);
-        Printer.Success($"Dotfiles de '{name}' actualizados.");
+        Printer.Success("Dotfiles actualizados.");
     }
 }

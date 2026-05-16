@@ -334,6 +334,11 @@ internal static class ArgParser
                 cmd.DotfilesDir = args[i];
                 break;
 
+            case "export":
+            case "e":
+                cmd.ProfileAction = ProfileAction.Export;
+                if (i < args.Length) cmd.Profile = args[i];
+                break;
             // ══════════════════════════════════════════════════════════════
             // COMANDO DESCONOCIDO
             // ══════════════════════════════════════════════════════════════
@@ -601,5 +606,5 @@ internal enum CommandType
 
 internal enum ProfileAction
 {
-    None, Create, EditName, EditPackages, EditDotfiles, Apply
+    None, Create, EditName, EditPackages, EditDotfiles, Apply, Export
 }

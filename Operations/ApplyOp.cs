@@ -111,7 +111,7 @@ internal static class ApplyOp
     /// <summary>
     /// Aplica paquetes stow sin interfaz interactiva.
     /// </summary>
-    public static void ApplyHome(string[] packages, Summary? summary = null)
+    public static bool ApplyHome(string[] packages, Summary? summary = null)
     {
         // Crear el directorio de backup con timestamp para esta sesión.
         string backupDir = Env.BackupDir + "_applyHomeAction";
@@ -120,7 +120,7 @@ internal static class ApplyOp
         {
             // Backup
             var backups = Backup.BackupPackage(pkg, backupDir, summary);
-            if (backups is null) return;
+            if (backups is null) return false;
 
             foreach (var i in backups)
                 File.Delete(i);
@@ -140,8 +140,11 @@ internal static class ApplyOp
             {
                 Printer.Error($"stow falló: {pkg}");
                 summary?.TrackErr($"stow falló: {pkg}");
+                return false;
             }
         }
+
+        return true;
     }
 
     /// <summary>

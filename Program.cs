@@ -160,6 +160,7 @@ internal static class Program
             "Crear perfil",
             "Editar perfil",
             "Aplicar perfil",
+            "Exportar perfil",
         ];
 
         bool running = true;
@@ -173,6 +174,7 @@ internal static class Program
                 case 0: CreateProfileOp.Run(_summary); break;
                 case 1: EditProfileOp.Run(_summary); break;
                 case 2: ApplyProfileOp.Run(_summary); break;
+                case 3: ExportProfileOp.Run(_summary); break;
             }
             Printer.color = Printer.defaultColor;
         }
