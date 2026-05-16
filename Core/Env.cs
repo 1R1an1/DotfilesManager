@@ -15,11 +15,13 @@ internal static class Env
 
     // Propiedades calculadas: se recomputan cada vez que se leen,
     // usando siempre el valor actual de DotfilesDir
-    public static string SystemDir  => Path.Combine(DotfilesDir, "system");
+    public static string SystemDir => Path.Combine(DotfilesDir, "system");
     public static string ScriptsDir => Path.Combine(DotfilesDir, ".scripts");
+    public static string ProfilesDir => Path.Combine(DotfilesDir, ".profiles");
+    public static string ProfilesFile => Path.Combine(ProfilesDir, "perfiles.json");
 
     // Cada llamada genera un timestamp nuevo, así cada operación tiene su propio backup
-    public static string BackupDir  =>
+    public static string BackupDir =>
         Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
 
     // Lee la config guardada. Si no existe o la ruta no existe, pide la ruta al usuario.

@@ -277,4 +277,34 @@ internal static class Shell
 
         return Run("/bin/bash", $"\"{scriptPath}\"", visible: visible, timeout: timeout);
     }
+
+    public static bool YayInstalled()
+        => Run("which", "yay").ExitCode == 0;
+
+    public static bool InstallYay()
+    {
+        // Clonar e instalar yay desde AUR
+        var (c1, _, _, _) = Run("pacman", "-S --needed git base base-devel", asSudo: true, visible: true);
+        if (c1 != 0) return false;
+
+        string tmpDir = Path.Combine(Path.GetTempPath(), "yay-install");
+        Run("rm", $"-rf \"{tmpDir}\"");
+
+        var (c2, _, _, _) = Run("git", $"clone https://aur.archlinux.org/yay.git \"{tmpDir}\"", visible: true);
+        if (c2 != 0) return false;
+
+        var (c3, _, _, _) = Run("bash", $"-c \"cd '{tmpDir}' && makepkg -si\"", visible: true);
+        return c3 == 0;
+    }
+
+    public static bool UpdateSystem()
+    {
+        return Run("yay", "-Syu", asUser: true, visible: true).ExitCode == 0;
+    }
+
+    public static bool InstallPackages(string[] packages)
+    {
+        string pkgList = string.Join(" ", packages);
+        return Run("yay", $"-S {pkgList}", asUser: true, visible: true).ExitCode == 0;
+    }
 }

@@ -33,10 +33,14 @@ internal static class Menu
 
     // Muestra una lista con checkboxes y retorna los índices marcados.
     // Retorna array vacío si el usuario cancela con q.
-    public static int[] SelectMulti(string title, string[] items)
+    public static int[] SelectMulti(string title, string[] items, bool[]? preselected = null)
     {
         int cursor = 0;
         bool[] marked = new bool[items.Length];
+
+        if (preselected is not null)
+            for (int i = 0; i < Math.Min(marked.Length, preselected.Length); i++)
+                marked[i] = preselected[i];
 
         Console.CursorVisible = false;
         try
