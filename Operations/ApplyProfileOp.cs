@@ -45,7 +45,7 @@ internal static class ApplyProfileOp
     /// <summary>
     /// Aplica un perfil por nombre sin interfaz interactiva.
     /// </summary>
-    public static void ApplyProfile(string name, Summary? summary = null)
+    public static void ApplyProfile(string name, Summary? summary = null, int startStep = 0)
     {
         var profiles = ProfileStore.Load();
         var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
@@ -56,8 +56,16 @@ internal static class ApplyProfileOp
             return;
         }
 
+        // Validar startStep
+        int startIndex = startStep > 0 ? startStep - 1 : 0;
+        if (startIndex >= perfil.Pasos.Count)
+        {
+            Printer.Error($"El paso {startStep} no existe en el perfil (tiene {perfil.Pasos.Count} pasos).");
+            return;
+        }
+
         Console.WriteLine();
-        Printer.Info($"Aplicando perfil: {perfil.Nombre}");
+        Printer.Info($"Aplicando perfil: {perfil.Nombre}" + (startStep > 0 ? $" (desde paso {startStep})" : ""));
 
         // ── Verificar/instalar yay UNA SOLA VEZ ──────────────────────────
         if (!Shell.YayInstalled())
@@ -83,11 +91,12 @@ internal static class ApplyProfileOp
             Printer.Warn("Falló la actualización del sistema, continuando...");
         }
 
-        // ── Ejecutar pasos en secuencia ──────────────────────────────────
-        for (int i = 0; i < perfil.Pasos.Count; i++)
+        // ── Ejecutar pasos desde startIndex ─────────────────────────────
+        for (int i = startIndex; i < perfil.Pasos.Count; i++)
         {
             var paso = perfil.Pasos[i];
-            Printer.Info($"--- Paso {i + 1}/{perfil.Pasos.Count}: {paso.Tipo} ---");
+            int pasoNum = i + 1;
+            Printer.Info($"--- Paso {pasoNum}/{perfil.Pasos.Count}: {paso.Tipo} ---");
 
             bool ok = paso.Tipo switch
             {
@@ -99,8 +108,8 @@ internal static class ApplyProfileOp
 
             if (!ok)
             {
-                Printer.Error($"Perfil '{name}' cancelado por fallo en el paso {i + 1}.");
-                summary?.TrackErr($"Perfil cancelado en paso {i + 1}.");
+                Printer.Error($"Perfil '{name}' cancelado por fallo en el paso {pasoNum}.");
+                summary?.TrackErr($"Perfil cancelado en paso {pasoNum}.");
                 return;
             }
         }

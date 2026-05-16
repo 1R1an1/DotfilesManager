@@ -9,7 +9,7 @@ internal static class Env
     // El orden de declaración de campos estáticos importa en C#.
     public static readonly string HomeDir = GetRealHome();
 
-    private static readonly string ConfigFile =
+    public static readonly string ConfigFile =
         Path.Combine(HomeDir, ".config", "dotfiles-manager", "config.json");
 
     public static string DotfilesDir { get; private set; } = "";
@@ -57,6 +57,17 @@ internal static class Env
         DotfilesDir = path;
         Directory.CreateDirectory(Path.GetDirectoryName(ConfigFile)!);
         File.WriteAllText(ConfigFile, JsonSerializer.Serialize(new Config { DotfilesDir = path }));
+    }
+
+    /// <summary>
+    /// Recarga la ruta del repo desde config.json sin interacción.
+    /// </summary>
+    public static void ReloadConfig()
+    {
+        if (!File.Exists(ConfigFile)) return;
+        var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(ConfigFile));
+        if (cfg?.DotfilesDir is not null && Directory.Exists(cfg.DotfilesDir))
+            DotfilesDir = cfg.DotfilesDir;
     }
 
     // Retorna las carpetas del repo que son paquetes stow válidos.

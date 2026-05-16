@@ -36,13 +36,6 @@ internal static class ArgParser
                 {
                     switch (args[i])
                     {
-                        case "--profile":
-                        case "-p":
-                            i++;
-                            if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta el nombre del perfil después de --profile.", mainCmd);
-                            cmd.Profile = args[i];
-                            break;
                         case "--home":
                         case "-H":
                             i++;
@@ -69,8 +62,8 @@ internal static class ArgParser
                     i++;
                 }
 
-                if (cmd.Profile is null && cmd.Packages.Length == 0 && cmd.SystemPaths.Length == 0)
-                    return Error("apply requiere --profile, --home o --system.", mainCmd);
+                if (cmd.Packages.Length == 0 && cmd.SystemPaths.Length == 0)
+                    return Error("apply requiere --home o --system.", mainCmd);
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -296,6 +289,28 @@ internal static class ArgParser
                         if (i >= args.Length || args[i].StartsWith('-'))
                             return Error("Falta el nombre del perfil para apply.", mainCmd);
                         cmd.Profile = args[i];
+                        i++;
+                        // Buscar --from-step
+                        while (i < args.Length)
+                        {
+                            if (args[i] == "--from-step" || args[i] == "-f")
+                            {
+                                i++;
+                                if (i >= args.Length || !int.TryParse(args[i], out int step) || step < 1)
+                                    return Error("Número de paso inválido para --from-step (debe ser ≥ 1).", mainCmd);
+                                cmd.StartStep = step;
+                            }
+                            else return Error($"Opción desconocida: '{args[i]}'", mainCmd);
+                            i++;
+                        }
+                        break;
+
+                    case "export":
+                    case "x":
+                        cmd.ProfileAction = ProfileAction.Export;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre del perfil para export.", mainCmd);
+                        cmd.Profile = args[i];
                         break;
 
                     default:
@@ -334,11 +349,6 @@ internal static class ArgParser
                 cmd.DotfilesDir = args[i];
                 break;
 
-            case "export":
-            case "e":
-                cmd.ProfileAction = ProfileAction.Export;
-                if (i < args.Length) cmd.Profile = args[i];
-                break;
             // ══════════════════════════════════════════════════════════════
             // COMANDO DESCONOCIDO
             // ══════════════════════════════════════════════════════════════
@@ -360,7 +370,7 @@ internal static class ArgParser
         return new CliCommand { Type = CommandType.Error };
     }
 
-    // ── Help (sin cambios) ──────────────────────────────────────────────────
+    // ── Help ────────────────────────────────────────────────────────────────
     public static void ShowHelp(string? command = null)
     {
         if (command is not null)
@@ -369,88 +379,84 @@ internal static class ArgParser
             return;
         }
 
-        // Ayuda completa (sin cambios)
         Console.WriteLine(@"
 Dotfiles Manager — CLI
 
 Uso: dotfiles-manager <comando> [opciones]
 
-╔══════════════════════════════════════════════════════════════╗
-║  APLICAR                                                     ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  APLICAR
+═══════════════════════════════════════════════════════════════
 
-  apply, a --profile, -p <nombre>
-        Aplicar un perfil
+  Comando: apply, a
+    -H, --home <paquetes...>      Aplicar paquetes stow del home
+    -s, --system <rutas...>       Aplicar symlinks de sistema
 
-  apply, a --home, -H <paquetes...>
-        Aplicar paquetes stow del home
+═══════════════════════════════════════════════════════════════
+  AGREGAR
+═══════════════════════════════════════════════════════════════
 
-  apply, a --system, -s <rutas...>
-        Aplicar symlinks de sistema
+  Comando: add
+    -H, --home <ruta>             Agregar archivo/carpeta del home
+    -s, --system <ruta>           Agregar archivo/carpeta al sistema
+    -p, --package <paquete>       Paquete stow destino (solo con --home)
 
-╔══════════════════════════════════════════════════════════════╗
-║  AGREGAR                                                     ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  ELIMINAR
+═══════════════════════════════════════════════════════════════
 
-  add --home, -H <ruta> --package, -p <paquete>
-        Agregar archivo/carpeta del home a un paquete stow
+  Comando: delete, d, del
+    -H, --home <paquete>          Eliminar symlinks de un paquete stow
+    -s, --system <rutas...>       Eliminar symlinks de sistema
+    -A, --action <accion>         Acción a realizar: symlinks | restore | all
 
-  add --system, -s <ruta>
-        Agregar archivo/carpeta al sistema
+═══════════════════════════════════════════════════════════════
+  PERFILES
+═══════════════════════════════════════════════════════════════
 
-╔══════════════════════════════════════════════════════════════╗
-║  ELIMINAR                                                    ║
-╚══════════════════════════════════════════════════════════════╝
+  Comando: profile, p
 
-  delete, d, del --home, -H <paquete> --action, -A <accion>
-        Eliminar symlinks de un paquete stow
-        Acciones: symlinks | restore | all
+    Subcomando: create, c <nombre>
+      -P, --packages <paquetes...>   Paquetes a incluir
+      -D, --dotfiles <dotfiles...>   Dotfiles a incluir
 
-  delete, d, del --system, -s <rutas...> --action, -A <accion>
-        Eliminar symlinks de sistema
+    Subcomando: edit-name, en <viejo> <nuevo>
+      Cambiar nombre de un perfil
 
-╔══════════════════════════════════════════════════════════════╗
-║  PERFILES                                                    ║
-╚══════════════════════════════════════════════════════════════╝
+    Subcomando: edit-packages, ep <nombre>
+      -P, --packages <paquetes...>   Nuevos paquetes del perfil
 
-  profile, p create, c <nombre> --packages, -P <...> --dotfiles, -D <...>
-        Crear un perfil nuevo
+    Subcomando: edit-dotfiles, ed <nombre>
+      -D, --dotfiles <dotfiles...>   Nuevos dotfiles del perfil
 
-  profile, p edit-name, en <viejo> <nuevo>
-        Cambiar nombre de un perfil
+    Subcomando: apply, a <nombre>
+      -f, --from-step <número>       Aplicar desde un paso concreto (opcional)
 
-  profile, p edit-packages, ep <nombre> --packages, -P <...>
-        Editar paquetes de un perfil
+    Subcomando: export, x <nombre>
+      Exportar un perfil a un script .sh
 
-  profile, p edit-dotfiles, ed <nombre> --dotfiles, -D <...>
-        Editar dotfiles de un perfil
+═══════════════════════════════════════════════════════════════
+  OTROS
+═══════════════════════════════════════════════════════════════
 
-  profile, p apply, a <nombre>
-        Aplicar un perfil
+  Comando: status, st
+      Ver estado de symlinks
 
-╔══════════════════════════════════════════════════════════════╗
-║  OTROS                                                       ║
-╚══════════════════════════════════════════════════════════════╝
+  Comando: script, S, run <nombre>
+      Ejecutar un script del repo
 
-  status, st
-        Ver estado de symlinks
+  Comando: set-dir, sd <ruta>
+      Cambiar el directorio del repo de dotfiles
 
-  script, S, run <nombre>
-        Ejecutar un script del repo
+  Comando: -h, --help, help
+      Mostrar esta ayuda
 
-  set-dir, sd <ruta>
-        Cambiar el directorio del repo de dotfiles
+═══════════════════════════════════════════════════════════════
+  EJEMPLOS
+═══════════════════════════════════════════════════════════════
 
-  -h, --help, help
-        Mostrar esta ayuda
-
-╔══════════════════════════════════════════════════════════════╗
-║  EJEMPLOS                                                    ║
-╚══════════════════════════════════════════════════════════════╝
-
-  dm a -p gaming
-  dm apply --system /etc/hosts /etc/mkinitcpio.conf
   dm a -H nvim bash
+  dm apply --system /etc/hosts /etc/mkinitcpio.conf
   dm add -H ~/.config/hypr -p hyprland
   dm add -s /etc/grub/grub.cfg
   dm d -H nvim -A restore
@@ -458,6 +464,8 @@ Uso: dotfiles-manager <comando> [opciones]
   dm p create servidor -P nginx docker -D bash
   dm profile en viejo nuevo
   dm p apply gaming
+  dm p apply gaming -f 2
+  dm p export gaming
   dm status
   dm S mi-script
   dm sd /home/user/mis-dotfiles
@@ -471,32 +479,26 @@ Uso: dotfiles-manager <comando> [opciones]
             case "apply":
             case "a":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  APLICAR                                                     ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  APLICAR
+═══════════════════════════════════════════════════════════════
 
-  apply, a --profile, -p <nombre>
-        Aplicar un perfil
-
-  apply, a --home, -H <paquetes...>
-        Aplicar paquetes stow del home
-
-  apply, a --system, -s <rutas...>
-        Aplicar symlinks de sistema
+  Comando: apply, a
+    -H, --home <paquetes...>      Aplicar paquetes stow del home
+    -s, --system <rutas...>       Aplicar symlinks de sistema
 ");
                 break;
 
             case "add":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  AGREGAR                                                     ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  AGREGAR
+═══════════════════════════════════════════════════════════════
 
-  add --home, -H <ruta> --package, -p <paquete>
-        Agregar archivo/carpeta del home a un paquete stow
-
-  add --system, -s <ruta>
-        Agregar archivo/carpeta al sistema
+  Comando: add
+    -H, --home <ruta>             Agregar archivo/carpeta del home
+    -s, --system <ruta>           Agregar archivo/carpeta al sistema
+    -p, --package <paquete>       Paquete stow destino (solo con --home)
 ");
                 break;
 
@@ -504,52 +506,56 @@ Uso: dotfiles-manager <comando> [opciones]
             case "d":
             case "del":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  ELIMINAR                                                    ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  ELIMINAR
+═══════════════════════════════════════════════════════════════
 
-  delete, d, del --home, -H <paquete> --action, -A <accion>
-        Eliminar symlinks de un paquete stow
-        Acciones: symlinks | restore | all
-
-  delete, d, del --system, -s <rutas...> --action, -A <accion>
-        Eliminar symlinks de sistema
+  Comando: delete, d, del
+    -H, --home <paquete>          Eliminar symlinks de un paquete stow
+    -s, --system <rutas...>       Eliminar symlinks de sistema
+    -A, --action <accion>         Acción: symlinks | restore | all
 ");
                 break;
 
             case "profile":
             case "p":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  PERFILES                                                    ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  PERFILES
+═══════════════════════════════════════════════════════════════
 
-  profile, p create, c <nombre> --packages, -P <...> --dotfiles, -D <...>
-        Crear un perfil nuevo
+  Comando: profile, p
 
-  profile, p edit-name, en <viejo> <nuevo>
-        Cambiar nombre de un perfil
+    Subcomando: create, c <nombre>
+      -P, --packages <paquetes...>   Paquetes a incluir
+      -D, --dotfiles <dotfiles...>   Dotfiles a incluir
 
-  profile, p edit-packages, ep <nombre> --packages, -P <...>
-        Editar paquetes de un perfil
+    Subcomando: edit-name, en <viejo> <nuevo>
+      Cambiar nombre de un perfil
 
-  profile, p edit-dotfiles, ed <nombre> --dotfiles, -D <...>
-        Editar dotfiles de un perfil
+    Subcomando: edit-packages, ep <nombre>
+      -P, --packages <paquetes...>   Nuevos paquetes del perfil
 
-  profile, p apply, a <nombre>
-        Aplicar un perfil
+    Subcomando: edit-dotfiles, ed <nombre>
+      -D, --dotfiles <dotfiles...>   Nuevos dotfiles del perfil
+
+    Subcomando: apply, a <nombre>
+      -f, --from-step <número>       Aplicar desde un paso concreto (opcional)
+
+    Subcomando: export, x <nombre>
+      Exportar un perfil a un script .sh
 ");
                 break;
 
             case "status":
             case "st":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  STATUS                                                      ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  STATUS
+═══════════════════════════════════════════════════════════════
 
-  status, st
-        Ver estado de symlinks
+  Comando: status, st
+      Ver estado de symlinks
 ");
                 break;
 
@@ -557,24 +563,24 @@ Uso: dotfiles-manager <comando> [opciones]
             case "S":
             case "run":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  SCRIPT                                                      ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  SCRIPT
+═══════════════════════════════════════════════════════════════
 
-  script, S, run <nombre>
-        Ejecutar un script del repo
+  Comando: script, S, run <nombre>
+      Ejecutar un script del repo
 ");
                 break;
 
             case "set-dir":
             case "sd":
                 Console.WriteLine(@"
-╔══════════════════════════════════════════════════════════════╗
-║  SET-DIR                                                     ║
-╚══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+  SET-DIR
+═══════════════════════════════════════════════════════════════
 
-  set-dir, sd <ruta>
-        Cambiar el directorio del repo de dotfiles
+  Comando: set-dir, sd <ruta>
+      Cambiar el directorio del repo de dotfiles
 ");
                 break;
         }
@@ -585,6 +591,7 @@ internal class CliCommand
 {
     public CommandType Type { get; set; } = CommandType.None;
     public ProfileAction ProfileAction { get; set; } = ProfileAction.None;
+    public int StartStep { get; set; } = 0; // 0 = desde el principio, base 1 en CLI
     public string? Profile { get; set; }
     public string? NewName { get; set; }
     public string[] Packages { get; set; } = [];

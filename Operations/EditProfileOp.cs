@@ -145,25 +145,32 @@ internal static class EditProfileOp
     private static void MoverPaso(Profile perfil)
     {
         if (perfil.Pasos.Count < 2) { Printer.Warn("Se necesitan al menos 2 pasos."); return; }
+
         string[] nombres = perfil.Pasos.Select((p, i) => $"{i + 1}. [{p.Tipo}] {p.Valor}").ToArray();
         int idx = Menu.SelectOne("Seleccioná paso a mover", nombres);
         if (idx == -1) return;
 
-        string[] direcciones = ["Subir", "Bajar"];
-        int dir = Menu.SelectOne("Dirección", direcciones);
-        if (dir == -1) return;
-
-        int newIdx = idx;
-        if (dir == 0 && idx > 0) newIdx = idx - 1;
-        else if (dir == 1 && idx < perfil.Pasos.Count - 1) newIdx = idx + 1;
-
-        if (newIdx != idx)
+        // Mostrar posible rango de destino
+        Console.WriteLine();
+        Console.Write($"  Mover al número (1-{perfil.Pasos.Count}): ");
+        string? input = Console.ReadLine()?.Trim();
+        if (!int.TryParse(input, out int newPos) || newPos < 1 || newPos > perfil.Pasos.Count)
         {
-            var paso = perfil.Pasos[idx];
-            perfil.Pasos.RemoveAt(idx);
-            perfil.Pasos.Insert(newIdx, paso);
-            Printer.Success("Paso movido.");
+            Printer.Error("Número inválido.");
+            Printer.PressEnterToContinue();
+            return;
         }
+
+        int newIdx = newPos - 1;
+        if (newIdx == idx) return;
+
+        var paso = perfil.Pasos[idx];
+        perfil.Pasos.RemoveAt(idx);
+        // Si la nueva posición es mayor que la original, al quitar el elemento los índices se corren
+        if (newIdx > idx) newIdx--;
+        perfil.Pasos.Insert(newIdx, paso);
+        Printer.Success($"Paso movido de posición {idx + 1} a {newPos}.");
+        Printer.PressEnterToContinue();
     }
 
     private static void CambiarNombre(Profile perfil, List<Profile> allProfiles)

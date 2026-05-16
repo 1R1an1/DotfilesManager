@@ -15,6 +15,22 @@ internal static class Program
         Env.LoadOrInit();
         _summary = new Summary();
 
+        // Watcher para recargar DotfilesDir si cambia config.json
+        using var watcher = new FileSystemWatcher(
+            Path.GetDirectoryName(Env.ConfigFile)!,
+            Path.GetFileName(Env.ConfigFile))
+        {
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+            EnableRaisingEvents = true
+        };
+
+        watcher.Changed += (_, _) =>
+        {
+            Thread.Sleep(50); // Pequeña pausa para que termine de escribirse
+            Env.ReloadConfig();
+            Printer.Info($"DotfilesDir actualizado a: {Env.DotfilesDir}");
+        };
+
         if (args.Length == 0)
         {
             RunInteractive();
@@ -67,9 +83,7 @@ internal static class Program
                 break;
 
             case CommandType.Apply:
-                if (cmd.Profile is not null)
-                    ApplyProfileOp.ApplyProfile(cmd.Profile);
-                else if (cmd.SystemPaths.Length > 0)
+                if (cmd.SystemPaths.Length > 0)
                     ApplyOp.ApplySystem(cmd.SystemPaths);
                 else if (cmd.Packages.Length > 0)
                     ApplyOp.ApplyHome(cmd.Packages);
@@ -113,7 +127,10 @@ internal static class Program
                         EditProfileOp.EditDotfiles(cmd.Profile!, cmd.Dotfiles);
                         break;
                     case ProfileAction.Apply:
-                        ApplyProfileOp.ApplyProfile(cmd.Profile!);
+                        ApplyProfileOp.ApplyProfile(cmd.Profile!, startStep: cmd.StartStep);
+                        break;
+                    case ProfileAction.Export:
+                        ExportProfileOp.Export(cmd.Profile!);
                         break;
                 }
                 break;
