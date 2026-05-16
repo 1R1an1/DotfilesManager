@@ -14,6 +14,11 @@ internal static class ArgParser
         {
             switch (args[i])
             {
+                case "-h":
+                case "--help":
+                    cmd.Type = CommandType.Help;
+                    return cmd;
+
                 case "-a":
                 case "--apply":
                     cmd.Type = CommandType.Apply;
@@ -142,6 +147,58 @@ internal static class ArgParser
 
         return cmd;
     }
+
+    // ── Help ──────────────────────────────────────────────────────────────
+
+    public static void ShowHelp()
+    {
+        Console.WriteLine(@"
+Dotfiles Manager — CLI
+
+Uso: dotfiles-manager <comando> [opciones]
+
+Comandos:
+  -a, --apply                  Aplicar dotfiles o paquetes
+    --profile, -p <nombre>     Aplicar un perfil por nombre
+    --system, -s <rutas...>    Aplicar symlinks de sistema
+    --home, -H <paquetes...>   Aplicar paquetes stow del home
+
+  --add                        Agregar archivos al repo
+    <ruta>                     Ruta del archivo/carpeta en home
+    --package, -p <paquete>    Paquete stow destino
+    --system, -s <ruta>        Agregar al sistema
+
+  -d, --delete                 Eliminar symlinks o archivos del repo
+    --package, -p <paquete>    Eliminar de un paquete stow
+    --action, -A <accion>      symlinks | restore | all
+    --system, -s <rutas...>    Eliminar symlinks de sistema
+
+  --status                     Ver estado de symlinks
+
+  --script, -S <nombre>        Ejecutar un script del repo
+
+  --profile, -p <nombre>       Aplicar un perfil (atajo)
+
+  --create-profile <nombre>    Crear un perfil nuevo
+    --packages, -P <paq...>    Paquetes a incluir
+    --dotfiles, -D <dot...>    Dotfiles a incluir
+
+  --set-dir <ruta>             Cambiar el directorio del repo de dotfiles
+
+  -h, --help                   Mostrar esta ayuda
+
+Ejemplos:
+  dotfiles-manager -a --profile gaming
+  dotfiles-manager -a -s /etc/hosts /etc/mkinitcpio.conf
+  dotfiles-manager -a -H nvim bash
+  dotfiles-manager --add ~/.config/hypr --package hyprland
+  dotfiles-manager --add -s /etc/grub/grub.cfg
+  dotfiles-manager -d -p nvim -A restore
+  dotfiles-manager -d -s /etc/hosts
+  dotfiles-manager --create-profile servidor --packages nginx docker --dotfiles bash
+  dotfiles-manager --set-dir /home/user/mis-dotfiles
+");
+    }
 }
 
 internal class CliCommand
@@ -165,6 +222,7 @@ internal enum CommandType
 {
     None,
     Menu,
+    Help,
     Apply,
     Add,
     Delete,

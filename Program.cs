@@ -100,6 +100,10 @@ internal static class Program
             case CommandType.SetDir:
                 Env.SetDotfilesDir(cmd.DotfilesDir ?? "");
                 break;
+
+            case CommandType.Help:
+                ArgParser.ShowHelp();
+                break;
         }
     }
 
