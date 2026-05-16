@@ -9,10 +9,6 @@ internal static class ApplyOp
     {
         summary.Reset();
 
-        // Crear el directorio de backup con timestamp para esta sesión.
-        // Se guarda en una variable porque Env.BackupDir genera un timestamp nuevo cada vez que se llama.
-        string backupDir = Env.BackupDir + "_applyAction";
-
         // ── Elegir qué aplicar ────────────────────────────────────────────
         Console.Clear();
         Printer.Header("Aplicar dotfiles");
@@ -46,18 +42,18 @@ internal static class ApplyOp
 
         // ── Aplicar paquetes de home ──────────────────────────────────────
         if (applyHome && hasHomePackages)
-            ApplyHomePackages(summary, backupDir);
+            ApplyHomePackages(summary);
 
         // ── Aplicar symlinks de sistema ───────────────────────────────────
         if (applySystem && hasSystemFiles)
-            ApplySystemSymlinks(summary, backupDir);
+            ApplySystemSymlinks(summary);
 
         summary.Print();
         Printer.PressEnterToContinue();
     }
 
     // ── UI: selecciona paquetes y llama al método sin UI ──────────────────
-    private static void ApplyHomePackages(Summary summary, string backupDir)
+    private static void ApplyHomePackages(Summary summary)
     {
         string[] packages = Env.GetPackages();
         if (packages.Length == 0)
@@ -86,11 +82,11 @@ internal static class ApplyOp
             return;
 
         // Delegar en el método sin UI
-        ApplyHome(chosen, backupDir, summary);
+        ApplyHome(chosen, summary);
     }
 
     // ── UI: selecciona archivos de sistema y llama al método sin UI ───────
-    private static void ApplySystemSymlinks(Summary summary, string backupDir)
+    private static void ApplySystemSymlinks(Summary summary)
     {
         // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
         string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a aplicar", Env.SystemDir);
@@ -105,7 +101,7 @@ internal static class ApplyOp
         }
 
         // Delegar en el método sin UI
-        ApplySystem(selected, backupDir, summary);
+        ApplySystem(selected, summary);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -115,9 +111,10 @@ internal static class ApplyOp
     /// <summary>
     /// Aplica paquetes stow sin interfaz interactiva.
     /// </summary>
-    public static void ApplyHome(string[] packages, string? backupDir = null, Summary? summary = null)
+    public static void ApplyHome(string[] packages, Summary? summary = null)
     {
-        backupDir ??= Env.BackupDir + "_applyAction";
+        // Crear el directorio de backup con timestamp para esta sesión.
+        string backupDir = Env.BackupDir + "_applyHomeAction";
 
         foreach (string pkg in packages)
         {
@@ -150,9 +147,10 @@ internal static class ApplyOp
     /// <summary>
     /// Aplica symlinks de sistema sin interfaz interactiva.
     /// </summary>
-    public static void ApplySystem(string[] repoPaths, string? backupDir = null, Summary? summary = null)
+    public static void ApplySystem(string[] repoPaths, Summary? summary = null)
     {
-        backupDir ??= Env.BackupDir + "_applyAction";
+        // Crear el directorio de backup con timestamp para esta sesión.
+        string backupDir = Env.BackupDir + "_applySystemAction";
 
         foreach (string entryInRepo in repoPaths)
         {
