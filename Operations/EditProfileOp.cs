@@ -104,4 +104,67 @@ internal static class EditProfileOp
         summary.Print();
         Printer.PressEnterToContinue();
     }
+
+    /// <summary>
+    /// Cambia el nombre de un perfil sin interfaz interactiva.
+    /// </summary>
+    public static void EditName(string oldName, string newName)
+    {
+        var profiles = ProfileStore.Load();
+        var perfil = profiles.FirstOrDefault(p => p.Nombre == oldName);
+
+        if (perfil is null)
+        {
+            Printer.Error($"Perfil '{oldName}' no encontrado.");
+            return;
+        }
+
+        if (profiles.Any(p => p.Nombre == newName))
+        {
+            Printer.Error($"Ya existe un perfil con el nombre '{newName}'.");
+            return;
+        }
+
+        perfil.Nombre = newName;
+        ProfileStore.Save(profiles);
+        Printer.Success($"Nombre cambiado de '{oldName}' a '{newName}'.");
+    }
+
+    /// <summary>
+    /// Edita los paquetes de un perfil sin interfaz interactiva.
+    /// </summary>
+    public static void EditPackages(string name, string[] packages)
+    {
+        var profiles = ProfileStore.Load();
+        var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
+
+        if (perfil is null)
+        {
+            Printer.Error($"Perfil '{name}' no encontrado.");
+            return;
+        }
+
+        perfil.Paquetes = [.. packages];
+        ProfileStore.Save(profiles);
+        Printer.Success($"Paquetes de '{name}' actualizados.");
+    }
+
+    /// <summary>
+    /// Edita los dotfiles de un perfil sin interfaz interactiva.
+    /// </summary>
+    public static void EditDotfiles(string name, string[] dotfiles)
+    {
+        var profiles = ProfileStore.Load();
+        var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
+
+        if (perfil is null)
+        {
+            Printer.Error($"Perfil '{name}' no encontrado.");
+            return;
+        }
+
+        perfil.Dotfiles = [.. dotfiles];
+        ProfileStore.Save(profiles);
+        Printer.Success($"Dotfiles de '{name}' actualizados.");
+    }
 }

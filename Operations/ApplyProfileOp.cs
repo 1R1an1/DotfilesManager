@@ -101,4 +101,57 @@ internal static class ApplyProfileOp
         summary.Print();
         Printer.PressEnterToContinue();
     }
+
+    /// <summary>
+    /// Aplica un perfil por nombre sin interfaz interactiva.
+    /// </summary>
+    public static void ApplyProfile(string name)
+    {
+        var profiles = ProfileStore.Load();
+        var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
+
+        if (perfil is null)
+        {
+            Printer.Error($"No se encontró el perfil '{name}'.");
+            return;
+        }
+
+        Console.WriteLine();
+        Printer.Info($"Aplicando perfil: {perfil.Nombre}");
+
+        if (perfil.Paquetes.Count > 0)
+        {
+            Printer.Info("Verificando yay...");
+            if (!Shell.YayInstalled())
+            {
+                Printer.Warn("yay no está instalado. Instalando...");
+                if (!Shell.InstallYay())
+                {
+                    Printer.Error("No se pudo instalar yay. Abortando paquetes.");
+                    goto applyDotfiles;
+                }
+            }
+
+            Printer.Info("Actualizando sistema...");
+            Shell.UpdateSystem();
+
+            Printer.Info($"Instalando {perfil.Paquetes.Count} paquete(s): {string.Join(", ", perfil.Paquetes)}");
+            Shell.InstallPackages([.. perfil.Paquetes]);
+        }
+
+    applyDotfiles:
+        if (perfil.Dotfiles.Count > 0)
+        {
+            Printer.Info($"Aplicando {perfil.Dotfiles.Count} dotfile(s): {string.Join(", ", perfil.Dotfiles)}");
+            foreach (string pkg in perfil.Dotfiles)
+            {
+                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
+                    Printer.Success($"stow: {pkg}");
+                else
+                    Printer.Error($"stow falló: {pkg}");
+            }
+        }
+
+        Printer.Success($"Perfil '{name}' aplicado.");
+    }
 }

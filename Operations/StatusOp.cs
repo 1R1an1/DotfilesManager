@@ -46,4 +46,33 @@ internal static class StatusOp
         Console.WriteLine();
         Printer.PressEnterToContinue();
     }
+
+    /// <summary>
+    /// Muestra el estado de los symlinks sin interfaz interactiva.
+    /// </summary>
+    public static void Check()
+    {
+        Printer.Info("Verificando estado de symlinks...");
+
+        if (Directory.Exists(Env.DotfilesDir))
+        {
+            foreach (string pkg in Env.GetPackages())
+            {
+                var (ok, stdout, stderr) = Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg);
+                Printer.Info($"  {pkg}: {(ok ? "OK" : $"Conflictos\n{stderr}")}");
+            }
+        }
+
+        if (Directory.Exists(Env.SystemDir))
+        {
+            Printer.Info("Symlinks de sistema:");
+            foreach (string file in Directory.GetFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
+            {
+                string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
+                bool exists = File.Exists(dest) || Directory.Exists(dest);
+                bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
+                Printer.Info($"  {dest}: {(isSymlink ? "OK" : "NO APLICADO")}");
+            }
+        }
+    }
 }

@@ -61,4 +61,29 @@ internal static class CreateProfileOp
         summary.Print();
         Printer.PressEnterToContinue();
     }
+
+    /// <summary>
+    /// Crea un perfil sin interfaz interactiva.
+    /// </summary>
+    public static void Create(string name, string[] packages, string[] dotfiles)
+    {
+        var profiles = ProfileStore.Load();
+
+        if (profiles.Any(p => p.Nombre == name))
+        {
+            Printer.Error($"Ya existe un perfil con el nombre '{name}'.");
+            return;
+        }
+
+        var perfil = new Profile
+        {
+            Nombre = name,
+            Paquetes = [.. packages],
+            Dotfiles = [.. dotfiles],
+        };
+
+        profiles.Add(perfil);
+        ProfileStore.Save(profiles);
+        Printer.Success($"Perfil '{name}' creado.");
+    }
 }

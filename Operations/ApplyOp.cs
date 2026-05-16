@@ -46,22 +46,17 @@ internal static class ApplyOp
 
         // ── Aplicar paquetes de home ──────────────────────────────────────
         if (applyHome && hasHomePackages)
-        {
             ApplyHomePackages(summary, backupDir);
-        }
 
         // ── Aplicar symlinks de sistema ───────────────────────────────────
         if (applySystem && hasSystemFiles)
-        {
             ApplySystemSymlinks(summary, backupDir);
-        }
 
         summary.Print();
         Printer.PressEnterToContinue();
     }
 
-    // ── Paquetes de home (stow) ──────────────────────────────────────────────
-
+    // ── UI: selecciona paquetes y llama al método sin UI ──────────────────
     private static void ApplyHomePackages(Summary summary, string backupDir)
     {
         string[] packages = Env.GetPackages();
@@ -82,40 +77,19 @@ internal static class ApplyOp
             return;
         }
 
-        string[] chosenPackages = selected.Select(i => packages[i]).ToArray();
+        string[] chosen = selected.Select(i => packages[i]).ToArray();
 
         Console.WriteLine();
-        Printer.Info($"Paquetes seleccionados: {string.Join(", ", chosenPackages)}");
+        Printer.Info($"Paquetes seleccionados: {string.Join(", ", chosen)}");
 
         if (!Menu.Confirm("¿Aplicar estos paquetes?"))
             return;
 
-        Console.WriteLine();
-        Printer.Info("Haciendo backup de archivos existentes...");
-        foreach (string pkg in chosenPackages)
-            foreach (var i in Backup.BackupPackage(pkg, backupDir))
-                File.Delete(i);
-
-        Console.WriteLine();
-        Printer.Info("Aplicando symlinks...");
-        Console.WriteLine();
-
-        foreach (string pkg in chosenPackages)
-        {
-            // Intentar stow normal primero.
-            // Si falla por archivos existentes que no son de stow, intentar con --adopt
-            // que los mueve al repo y crea el symlink en su lugar.
-            if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
-                summary.TrackOk($"stow: {pkg}");
-            else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
-                summary.TrackOk($"stow (adopt): {pkg}");
-            else
-                summary.TrackErr($"stow falló: {pkg}");
-        }
+        // Delegar en el método sin UI
+        ApplyHome(chosen, backupDir, summary);
     }
 
-    // ── Symlinks de sistema (system/) ────────────────────────────────────────
-
+    // ── UI: selecciona archivos de sistema y llama al método sin UI ───────
     private static void ApplySystemSymlinks(Summary summary, string backupDir)
     {
         // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
@@ -130,53 +104,92 @@ internal static class ApplyOp
             return;
         }
 
-        // Primero backup de todo lo seleccionado
-        Console.WriteLine();
-        Printer.Info("Haciendo backup de archivos de sistema...");
-        Console.WriteLine();
+        // Delegar en el método sin UI
+        ApplySystem(selected, backupDir, summary);
+    }
 
-        foreach (string entryInRepo in selected)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Métodos sin UI (usados también por CLI)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Aplica paquetes stow sin interfaz interactiva.
+    /// </summary>
+    public static void ApplyHome(string[] packages, string? backupDir = null, Summary? summary = null)
+    {
+        backupDir ??= Env.BackupDir + "_applyAction";
+
+        foreach (string pkg in packages)
         {
+            // Backup
+            foreach (var i in Backup.BackupPackage(pkg, backupDir))
+                File.Delete(i);
+
+            // Stow
+            if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
+            {
+                Printer.Success($"stow: {pkg}");
+                summary?.TrackOk($"stow: {pkg}");
+            }
+            else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
+            {
+                Printer.Success($"stow (adopt): {pkg}");
+                summary?.TrackOk($"stow (adopt): {pkg}");
+            }
+            else
+            {
+                Printer.Error($"stow falló: {pkg}");
+                summary?.TrackErr($"stow falló: {pkg}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Aplica symlinks de sistema sin interfaz interactiva.
+    /// </summary>
+    public static void ApplySystem(string[] repoPaths, string? backupDir = null, Summary? summary = null)
+    {
+        backupDir ??= Env.BackupDir + "_applyAction";
+
+        foreach (string entryInRepo in repoPaths)
+        {
+            string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
+
             if (Directory.Exists(entryInRepo))
             {
-                // Si es carpeta, hacer backup de cada archivo adentro
-                foreach (string file in Directory.EnumerateFiles(entryInRepo, "*", SearchOption.AllDirectories))
+                // Backup de cada archivo dentro
+                foreach (string file in Directory.GetFiles(entryInRepo, "*", SearchOption.AllDirectories))
                 {
                     string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                    if (!Backup.BackupSystemFile(dest, backupDir, summary)) return;
+                    Backup.BackupSystemFile(dest, backupDir, summary);
+                }
+
+                // Symlinks individuales
+                var created = Shell.SymlinkDirectoryContents(entryInRepo, systemPath, asSudo: true);
+                foreach (string dest in created)
+                {
+                    Printer.Success($"symlink sistema: {dest}");
+                    summary?.TrackOk($"symlink sistema: {dest}");
+                }
+            }
+            else if (File.Exists(entryInRepo))
+            {
+                Backup.BackupSystemFile(systemPath, backupDir, summary);
+                if (Shell.Symlink(entryInRepo, systemPath, true).Ok)
+                {
+                    Printer.Success($"symlink sistema: {systemPath}");
+                    summary?.TrackOk($"symlink sistema: {systemPath}");
+                }
+                else
+                {
+                    Printer.Error($"symlink sistema falló: {systemPath}");
+                    summary?.TrackErr($"symlink sistema falló: {systemPath}");
                 }
             }
             else
             {
-                // Si es archivo, backup directo
-                string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
-                if (!Backup.BackupSystemFile(dest, backupDir, summary)) return;
-            }
-        }
-
-        // Después aplicar todo
-        Console.WriteLine();
-        Printer.Info("Aplicando symlinks de sistema...");
-        Console.WriteLine();
-
-        foreach (string entryInRepo in selected)
-        {
-            if (Directory.Exists(entryInRepo))
-            {
-                // Si es carpeta, symlinkear cada archivo adentro, no la carpeta
-                string destDir = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
-                var created = Shell.SymlinkDirectoryContents(entryInRepo, destDir, asSudo: true);
-                foreach (string dest in created)
-                    summary.TrackOk($"symlink sistema: {dest}");
-            }
-            else
-            {
-                // Si es archivo, aplicar directamente
-                string dest = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
-                if (Shell.Symlink(entryInRepo, dest, true).Ok)
-                    summary.TrackOk($"symlink sistema: {dest}");
-                else
-                    summary.TrackErr($"symlink sistema falló: {dest}");
+                Printer.Error($"No se encontró '{systemPath}' en el repo.");
+                summary?.TrackErr($"No se encontró '{systemPath}' en el repo.");
             }
         }
     }

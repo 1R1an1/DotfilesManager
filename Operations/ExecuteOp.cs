@@ -42,4 +42,24 @@ internal static class ExecuteOp
         summary.Print();
         Printer.PressEnterToContinue();
     }
+
+    /// <summary>
+    /// Ejecuta un script por nombre sin interfaz interactiva.
+    /// </summary>
+    public static void RunScript(string name)
+    {
+        string scriptPath = Path.Combine(Env.ScriptsDir, name);
+
+        if (!File.Exists(scriptPath))
+        {
+            Printer.Error($"Script no encontrado: {scriptPath}");
+            return;
+        }
+
+        var (code, stdout, stderr, _) = Shell.Bash(scriptPath, visible: true);
+        if (code == 0)
+            Printer.Success($"Script ejecutado: {name}");
+        else
+            Printer.Error($"Script falló ({code}): {stderr}");
+    }
 }

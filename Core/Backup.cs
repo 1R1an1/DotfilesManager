@@ -70,7 +70,7 @@ internal static class Backup
         {
             string msg = $"No se pudo hacer backup de: {absolutePath} ({stderr})";
             if (summary != null) summary.TrackErr(msg);
-            else Printer.Warn(msg);
+            else Printer.Error(msg);
             return false;
         }
     }
@@ -91,7 +91,7 @@ internal static class Backup
         {
             string msg = $"No se pudo hacer backup de: {absolutePath}";
             if (summary != null) summary.TrackErr(msg);
-            else Printer.Warn(msg);
+            else Printer.Error(msg);
         }
         return ok;
     }

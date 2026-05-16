@@ -17,106 +17,42 @@ internal static class DeleteOp
         Console.Clear();
         Printer.Header("Borrar symlinks");
 
-        if (choice == 0) DeletePackage(summary);
-        else DeleteSystemSymlink(summary);
+        if (choice == 0) DeletePackageUI(summary);
+        else DeleteSystemSymlinksUI(summary);
 
         summary.Print();
         Printer.PressEnterToContinue();
     }
 
-    // ── Paquete stow ──────────────────────────────────────────────────────────
-
-    private static void DeletePackage(Summary summary)
+    // ── UI: selecciona paquete y acción, delega en método sin UI ──────────
+    private static void DeletePackageUI(Summary summary)
     {
         string[] packages = Env.GetPackages();
         int pkgIdx = Menu.SelectOne("Seleccioná el paquete a desenlazar", packages);
-
         if (pkgIdx == -1) return;
-
         string package = packages[pkgIdx];
 
-        string[] actions =
-        [
+        string[] actions = [
             "Solo eliminar symlinks (archivos quedan en el repo)",
-        "Restaurar archivos a su ubicación original (y eliminar symlinks)",
-        "Eliminar todo (symlinks + archivos del repo)",
-    ];
+            "Restaurar archivos a su ubicación original (y eliminar symlinks)",
+            "Eliminar todo (symlinks + archivos del repo)"
+        ];
 
         int actionIdx = Menu.SelectOne($"¿Qué querés hacer con '{package}'?", actions);
-
         Console.Clear();
         Printer.Header("Borrar symlinks");
-
         if (actionIdx == -1) return;
 
-        switch (actionIdx)
-        {
-            case 0:
-                if (!Menu.Confirm($"¿Eliminar symlinks de '{package}'? Los archivos quedan en el repo.")) return;
-                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
-                    summary.TrackOk($"Symlinks de '{package}' eliminados.");
-                else
-                    summary.TrackErr($"No se pudieron eliminar los symlinks de '{package}'.");
-                break;
+        string action = actionIdx switch { 0 => "symlinks", 1 => "restore", 2 => "all", _ => "symlinks" };
 
-            case 1:
-                if (!Menu.Confirm($"¿Restaurar archivos de '{package}' a home y eliminar symlinks?")) return;
-                Console.WriteLine();
+        if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}' en '{package}'?")) return;
 
-                // ── Copia eficiente: todo de un saque ──
-                string pkgDir = Path.Combine(Env.DotfilesDir, package);
-
-                // Listamos los archivos **antes** de borrar los symlinks
-                // para después llenar el resumen sin necesidad de otro enumerado
-                string[] files = Directory.GetFiles(pkgDir, "*", SearchOption.AllDirectories);
-
-                if (!Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
-                {
-                    summary.TrackErr($"stow -D falló para '{package}', abortando restauración.");
-                    return;
-                }
-                summary.TrackOk($"Symlinks de '{package}' eliminados.");
-
-                // Copiamos todo el contenido del paquete a $HOME en un solo comando
-                // (cp -a preserva permisos, dueño, grupo, timestamps y enlaces simbólicos)
-                bool copyOk = Shell.Copy(pkgDir, Env.HomeDir, recursive: true, contents: true).Ok;
-                if (copyOk)
-                {
-                    foreach (string src in files)
-                    {
-                        string rel = Path.GetRelativePath(pkgDir, src);
-                        summary.TrackOk($"Restaurado: ~/{rel}");
-                    }
-                }
-                else
-                    summary.TrackErr($"Falló la copia masiva del paquete '{package}'.");
-
-                break;
-
-            case 2:
-                if (!Menu.Confirm($"¿Eliminar symlinks Y archivos del repo de '{package}'? Esto no tiene vuelta.")) return;
-                Console.WriteLine();
-
-                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
-                    summary.TrackOk($"Symlinks de '{package}' eliminados.");
-                else
-                    summary.TrackErr($"stow -D falló para '{package}'.");
-
-                try
-                {
-                    Directory.Delete(Path.Combine(Env.DotfilesDir, package), recursive: true);
-                    summary.TrackOk($"Carpeta del repo eliminada.");
-                }
-                catch { summary.TrackErr($"No se pudo eliminar la carpeta del repo."); }
-                break;
-        }
+        DeleteHome(package, action, summary);
     }
 
-    // ── Symlink de sistema ────────────────────────────────────────────────────
-
-    private static void DeleteSystemSymlink(Summary summary)
+    // ── UI: selecciona archivos de system/ y acción, delega en sin UI ─────
+    private static void DeleteSystemSymlinksUI(Summary summary)
     {
-        // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
         string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a eliminar", Env.SystemDir);
 
         Console.Clear();
@@ -128,67 +64,161 @@ internal static class DeleteOp
             return;
         }
 
-        string[] actions =
-        [
+        string[] actions = [
             "Solo eliminar el symlink (archivo queda en el repo)",
             "Restaurar archivo a su ubicación original (y eliminar symlink)",
-            "Eliminar todo (symlink + archivo del repo)",
+            "Eliminar todo (symlink + archivo del repo)"
         ];
 
         int actionIdx = Menu.SelectOne($"¿Qué querés hacer con {selected.Length} elemento(s)?", actions);
-
         Console.Clear();
         Printer.Header("Borrar symlinks");
-
         if (actionIdx == -1) return;
 
-        switch (actionIdx)
+        string action = actionIdx switch { 0 => "symlinks", 1 => "restore", 2 => "all", _ => "symlinks" };
+
+        if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}'?")) return;
+
+        DeleteSystem(selected, action, summary);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Métodos sin UI (usados también por CLI)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Elimina symlinks de un paquete stow.
+    /// action: "symlinks" (default), "restore", "all"
+    /// </summary>
+    public static void DeleteHome(string package, string action = "symlinks", Summary? summary = null)
+    {
+        string pkgDir = Path.Combine(Env.DotfilesDir, package);
+
+        switch (action)
         {
-            case 0:
-                if (!Menu.Confirm($"¿Eliminar {selected.Length} symlink(s)? Los archivos quedan en el repo.")) return;
-                foreach (string entry in selected)
+            case "symlinks":
+                if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                 {
-                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
-                    if (Shell.Remove(systemPath, true).Ok)
-                        summary.TrackOk($"Symlink eliminado: {systemPath}");
-                    else
-                        summary.TrackErr($"No se pudo eliminar: {systemPath}");
+                    Printer.Success($"Symlinks de '{package}' eliminados.");
+                    summary?.TrackOk($"Symlinks de '{package}' eliminados.");
+                }
+                else
+                {
+                    Printer.Error($"No se pudieron eliminar los symlinks de '{package}'.");
+                    summary?.TrackErr($"No se pudieron eliminar los symlinks de '{package}'.");
                 }
                 break;
 
-            case 1:
-                if (!Menu.Confirm($"¿Restaurar {selected.Length} archivo(s) y eliminar symlinks?")) return;
-                foreach (string entry in selected)
+            case "restore":
+                string[] files = Directory.GetFiles(pkgDir, "*", SearchOption.AllDirectories);
+                if (!Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                 {
-                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
-                    Shell.Remove(systemPath, true);
+                    Printer.Error($"stow -D falló para '{package}', abortando.");
+                    summary?.TrackErr($"stow -D falló para '{package}'.");
+                    return;
+                }
+                summary?.TrackOk($"Symlinks de '{package}' eliminados.");
 
+                if (Shell.Copy(pkgDir, Env.HomeDir, recursive: true, contents: true).Ok)
+                {
+                    foreach (string src in files)
+                    {
+                        string rel = Path.GetRelativePath(pkgDir, src);
+                        Printer.Success($"Restaurado: ~/{rel}");
+                        summary?.TrackOk($"Restaurado: ~/{rel}");
+                    }
+                }
+                else
+                {
+                    Printer.Error($"Falló la copia masiva del paquete '{package}'.");
+                    summary?.TrackErr($"Falló la copia masiva del paquete '{package}'.");
+                }
+                break;
+
+            case "all":
+                Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true);
+                try
+                {
+                    Directory.Delete(pkgDir, recursive: true);
+                    Printer.Success($"Carpeta del repo eliminada.");
+                    summary?.TrackOk($"Carpeta del repo eliminada.");
+                }
+                catch
+                {
+                    Printer.Error($"No se pudo eliminar la carpeta del repo.");
+                    summary?.TrackErr($"No se pudo eliminar la carpeta del repo.");
+                }
+                break;
+
+            default:
+                Printer.Error($"Acción desconocida: {action}");
+                summary?.TrackErr($"Acción desconocida: {action}");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Elimina symlinks de sistema.
+    /// action: "symlinks" (default), "restore", "all"
+    /// </summary>
+    public static void DeleteSystem(string[] repoPaths, string action = "symlinks", Summary? summary = null)
+    {
+        foreach (string entry in repoPaths)
+        {
+            string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
+
+            switch (action)
+            {
+                case "symlinks":
+                    if (Shell.Remove(systemPath, true).Ok)
+                    {
+                        Printer.Success($"Symlink eliminado: {systemPath}");
+                        summary?.TrackOk($"Symlink eliminado: {systemPath}");
+                    }
+                    else
+                    {
+                        Printer.Error($"No se pudo eliminar: {systemPath}");
+                        summary?.TrackErr($"No se pudo eliminar: {systemPath}");
+                    }
+                    break;
+
+                case "restore":
+                    Backup.BackupSystemFile(systemPath, Env.BackupDir + "_deleteAction", summary);
+                    Shell.Remove(systemPath, true);
                     bool copied = Directory.Exists(entry)
                         ? Shell.Copy(entry, systemPath, asSudo: true, recursive: true).Ok
                         : Shell.Copy(entry, systemPath, asSudo: true).Ok;
-
-                    if (copied) summary.TrackOk($"Archivo restaurado: {systemPath}");
-                    else summary.TrackErr($"Falló la restauración de: {systemPath}");
-                }
-                break;
-
-            case 2:
-                if (!Menu.Confirm($"¿Eliminar symlinks Y archivos del repo? Sin vuelta atrás.")) return;
-                foreach (string entry in selected)
-                {
-                    string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entry);
-
-                    if (Shell.Remove(systemPath, true).Ok)
-                        summary.TrackOk($"Symlink eliminado: {systemPath}");
+                    if (copied)
+                    {
+                        Printer.Success($"Archivo restaurado: {systemPath}");
+                        summary?.TrackOk($"Archivo restaurado: {systemPath}");
+                    }
                     else
-                        summary.TrackErr($"No se pudo eliminar el symlink: {systemPath}");
+                    {
+                        Printer.Error($"Falló la restauración de: {systemPath}");
+                        summary?.TrackErr($"Falló la restauración de: {systemPath}");
+                    }
+                    break;
 
+                case "all":
+                    Shell.Remove(systemPath, true);
                     if (Shell.Remove(entry, true).Ok)
-                        summary.TrackOk($"Archivo del repo eliminado: {entry}");
+                    {
+                        Printer.Success($"Archivo del repo eliminado: {entry}");
+                        summary?.TrackOk($"Archivo del repo eliminado: {entry}");
+                    }
                     else
-                        summary.TrackErr($"No se pudo eliminar del repo: {entry}");
-                }
-                break;
+                    {
+                        Printer.Error($"No se pudo eliminar del repo: {entry}");
+                        summary?.TrackErr($"No se pudo eliminar del repo: {entry}");
+                    }
+                    break;
+
+                default:
+                    Printer.Error($"Acción desconocida: {action}");
+                    summary?.TrackErr($"Acción desconocida: {action}");
+                    break;
+            }
         }
     }
 }

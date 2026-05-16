@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DotfilesManager.UI;
 
 namespace DotfilesManager.Core;
 
@@ -87,5 +88,19 @@ internal static class Env
     private sealed class Config
     {
         public string? DotfilesDir { get; set; }
+    }
+
+    /// <summary>
+    /// Cambia la ruta del repo de dotfiles y la guarda en config.json.
+    /// </summary>
+    public static void SetDotfilesDir(string path)
+    {
+        if (!Directory.Exists(path))
+            throw new DirectoryNotFoundException($"El directorio '{path}' no existe.");
+
+        DotfilesDir = path;
+        Directory.CreateDirectory(Path.GetDirectoryName(ConfigFile)!);
+        File.WriteAllText(ConfigFile, JsonSerializer.Serialize(new Config { DotfilesDir = path }));
+        Printer.Info($"DotfilesDir cambiado a: {path}");
     }
 }
