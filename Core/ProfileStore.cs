@@ -22,7 +22,6 @@ internal static class ProfileStore
 
     public static void Save(List<Profile> profiles)
     {
-        Directory.CreateDirectory(Env.ProfilesDir);
         string json = JsonSerializer.Serialize(profiles, _opts);
         File.WriteAllText(Env.ProfilesFile, json);
     }
