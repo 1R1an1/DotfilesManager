@@ -122,7 +122,10 @@ internal static class ApplyOp
         foreach (string pkg in packages)
         {
             // Backup
-            foreach (var i in Backup.BackupPackage(pkg, backupDir))
+            var backups = Backup.BackupPackage(pkg, backupDir, summary);
+            if (backups is null) return;
+
+            foreach (var i in backups)
                 File.Delete(i);
 
             // Stow

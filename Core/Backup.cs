@@ -7,7 +7,7 @@ internal static class Backup
     // Hace backup de los archivos reales (no symlinks) que stow va a reemplazar.
     // Ahora usa un único comando cp --parents para copiar todo de una vez,
     // en lugar de lanzar un proceso por cada archivo.
-    public static string[] BackupPackage(string package, string backupDir)
+    public static string[]? BackupPackage(string package, string backupDir, Summary? summary = null)
     {
         string srcDir = Path.Combine(Env.DotfilesDir, package);
         if (!Directory.Exists(srcDir)) return [];
@@ -37,8 +37,10 @@ internal static class Backup
 
         if (!code)
         {
-            Printer.Warn($"Error en backup de '{package}': {stderr}");
-            return [];
+            string msg = $"Error en backup de: {package} ({stderr})";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return null;
         }
 
         // Paso 3: Devolver las rutas completas
