@@ -58,24 +58,28 @@ internal static class Program
     {
         switch (cmd.Type)
         {
+            case CommandType.Help:
+                ArgParser.ShowHelp();
+                break;
+
             case CommandType.Apply:
                 if (cmd.Profile is not null)
                     ApplyProfileOp.ApplyProfile(cmd.Profile);
-                else if (cmd.ApplySystem)
+                else if (cmd.SystemPaths.Length > 0)
                     ApplyOp.ApplySystem(cmd.SystemPaths);
                 else if (cmd.Packages.Length > 0)
                     ApplyOp.ApplyHome(cmd.Packages);
                 break;
 
             case CommandType.Add:
-                if (cmd.AddToSystem)
+                if (cmd.AddToSystem && cmd.SystemPaths.Length > 0)
                     AddOp.AddToSystem(cmd.SystemPaths[0]);
                 else if (cmd.AddHomePath is not null)
                     AddOp.AddToHome(cmd.AddHomePath, cmd.AddHomePackage ?? "default");
                 break;
 
             case CommandType.Delete:
-                if (cmd.DeleteSystem)
+                if (cmd.DeleteSystem && cmd.SystemPaths.Length > 0)
                     DeleteOp.DeleteSystem(cmd.SystemPaths, cmd.Action ?? "symlinks");
                 else if (cmd.Packages.Length > 0)
                     DeleteOp.DeleteHome(cmd.Packages[0], cmd.Action ?? "symlinks");
@@ -90,19 +94,28 @@ internal static class Program
                 break;
 
             case CommandType.Profile:
-                ApplyProfileOp.ApplyProfile(cmd.Profile ?? "");
-                break;
-
-            case CommandType.CreateProfile:
-                CreateProfileOp.Create(cmd.Profile ?? "", cmd.Packages, cmd.Dotfiles);
+                switch (cmd.ProfileAction)
+                {
+                    case ProfileAction.Create:
+                        CreateProfileOp.Create(cmd.Profile ?? "", cmd.Packages, cmd.Dotfiles);
+                        break;
+                    case ProfileAction.EditName:
+                        EditProfileOp.EditName(cmd.Profile ?? "", cmd.NewName ?? "");
+                        break;
+                    case ProfileAction.EditPackages:
+                        EditProfileOp.EditPackages(cmd.Profile ?? "", cmd.Packages);
+                        break;
+                    case ProfileAction.EditDotfiles:
+                        EditProfileOp.EditDotfiles(cmd.Profile ?? "", cmd.Dotfiles);
+                        break;
+                    case ProfileAction.Apply:
+                        ApplyProfileOp.ApplyProfile(cmd.Profile ?? "");
+                        break;
+                }
                 break;
 
             case CommandType.SetDir:
                 Env.SetDotfilesDir(cmd.DotfilesDir ?? "");
-                break;
-
-            case CommandType.Help:
-                ArgParser.ShowHelp();
                 break;
         }
     }

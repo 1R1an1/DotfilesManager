@@ -1,3 +1,5 @@
+using DotfilesManager.UI;
+
 namespace DotfilesManager.Core;
 
 internal static class ArgParser
@@ -10,139 +12,278 @@ internal static class ArgParser
         var cmd = new CliCommand();
         int i = 0;
 
-        while (i < args.Length)
-        {
-            switch (args[i])
-            {
-                case "-h":
-                case "--help":
-                    cmd.Type = CommandType.Help;
-                    return cmd;
+        // ── Comando principal ────────────────────────────────────────────
+        string mainCmd = args[0].ToLower();
+        i = 1;
 
-                case "-a":
-                case "--apply":
-                    cmd.Type = CommandType.Apply;
-                    i++;
-                    if (i < args.Length)
+        switch (mainCmd)
+        {
+            // ══════════════════════════════════════════════════════════════
+            // HELP
+            // ══════════════════════════════════════════════════════════════
+            case "-h":
+            case "--help":
+            case "help":
+                return new CliCommand { Type = CommandType.Help };
+
+            // ══════════════════════════════════════════════════════════════
+            // APPLY
+            // ══════════════════════════════════════════════════════════════
+            case "apply":
+            case "a":
+                cmd.Type = CommandType.Apply;
+                while (i < args.Length)
+                {
+                    switch (args[i])
                     {
-                        if (args[i] == "--profile" || args[i] == "-p")
-                        {
+                        case "--profile":
+                        case "-p":
                             i++;
                             if (i < args.Length) cmd.Profile = args[i];
-                        }
-                        else if (args[i] == "--system" || args[i] == "-s")
-                        {
-                            cmd.ApplySystem = true;
-                            cmd.SystemPaths = args.Skip(i + 1).ToArray();
-                            i = args.Length;
-                        }
-                        else if (args[i] == "--home" || args[i] == "-H")
-                        {
-                            cmd.Packages = args.Skip(i + 1).ToArray();
-                            i = args.Length;
-                        }
+                            break;
+                        case "--home":
+                        case "-H":
+                            i++;
+                            var homePkgs = new List<string>();
+                            while (i < args.Length && !args[i].StartsWith('-'))
+                                homePkgs.Add(args[i++]);
+                            cmd.Packages = [.. homePkgs];
+                            continue;
+                        case "--system":
+                        case "-s":
+                            i++;
+                            var sysPaths = new List<string>();
+                            while (i < args.Length && !args[i].StartsWith('-'))
+                                sysPaths.Add(args[i++]);
+                            cmd.SystemPaths = [.. sysPaths];
+                            continue;
+                        default:
+                            i++;
+                            break;
                     }
-                    break;
-
-                case "--add":
-                    cmd.Type = CommandType.Add;
                     i++;
-                    if (i < args.Length && (args[i] == "--system" || args[i] == "-s"))
+                }
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // ADD
+            // ══════════════════════════════════════════════════════════════
+            case "add":
+                cmd.Type = CommandType.Add;
+                while (i < args.Length)
+                {
+                    switch (args[i])
                     {
-                        cmd.AddToSystem = true;
-                        cmd.SystemPaths = args.Skip(i + 1).ToArray();
-                        i = args.Length;
-                    }
-                    else if (i < args.Length)
-                    {
-                        cmd.AddHomePath = args[i];
-                        i++;
-                        if (i < args.Length && (args[i] == "--package" || args[i] == "-p"))
-                        {
+                        case "--home":
+                        case "-H":
+                            i++;
+                            if (i < args.Length)
+                            {
+                                cmd.AddHomePath = args[i];
+                                cmd.AddToSystem = false;
+                            }
+                            break;
+                        case "--system":
+                        case "-s":
+                            i++;
+                            if (i < args.Length)
+                            {
+                                cmd.SystemPaths = [args[i]];
+                                cmd.AddToSystem = true;
+                            }
+                            break;
+                        case "--package":
+                        case "-p":
                             i++;
                             if (i < args.Length) cmd.AddHomePackage = args[i];
-                        }
+                            break;
+                        default:
+                            i++;
+                            break;
                     }
-                    break;
-
-                case "-d":
-                case "--delete":
-                    cmd.Type = CommandType.Delete;
                     i++;
-                    if (i < args.Length)
+                }
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // DELETE
+            // ══════════════════════════════════════════════════════════════
+            case "delete":
+            case "d":
+            case "del":
+                cmd.Type = CommandType.Delete;
+                while (i < args.Length)
+                {
+                    switch (args[i])
                     {
-                        if (args[i] == "--package" || args[i] == "-p")
-                        {
+                        case "--home":
+                        case "-H":
+                            cmd.DeleteSystem = false;
                             i++;
-                            if (i < args.Length) cmd.Packages = [args[i]];
-                            i++;
-                            if (i < args.Length && (args[i] == "--action" || args[i] == "-A"))
-                            {
-                                i++;
-                                if (i < args.Length) cmd.Action = args[i];
-                            }
-                        }
-                        else if (args[i] == "--system" || args[i] == "-s")
-                        {
+                            if (i < args.Length && !args[i].StartsWith('-'))
+                                cmd.Packages = [args[i]];
+                            break;
+                        case "--system":
+                        case "-s":
                             cmd.DeleteSystem = true;
-                            cmd.SystemPaths = args.Skip(i + 1).ToArray();
-                            i = args.Length;
-                        }
+                            i++;
+                            var sysPaths = new List<string>();
+                            while (i < args.Length && !args[i].StartsWith('-'))
+                                sysPaths.Add(args[i++]);
+                            cmd.SystemPaths = [.. sysPaths];
+                            continue;
+                        case "--action":
+                        case "-A":
+                            i++;
+                            if (i < args.Length) cmd.Action = args[i];
+                            break;
+                        default:
+                            i++;
+                            break;
                     }
-                    break;
-
-                case "--status":
-                    cmd.Type = CommandType.Status;
-                    break;
-
-                case "--script":
-                case "-S":
-                    cmd.Type = CommandType.Script;
                     i++;
-                    if (i < args.Length) cmd.ScriptName = args[i];
-                    break;
+                }
+                break;
 
-                case "--profile":
-                case "-p":
-                    if (cmd.Type == CommandType.None)
-                        cmd.Type = CommandType.Profile;
+            // ══════════════════════════════════════════════════════════════
+            // PROFILE
+            // ══════════════════════════════════════════════════════════════
+            case "profile":
+            case "p":
+                cmd.Type = CommandType.Profile;
+                if (i < args.Length)
+                {
+                    string subCmd = args[i].ToLower();
                     i++;
-                    if (i < args.Length) cmd.Profile = args[i];
-                    break;
 
-                case "--create-profile":
-                    cmd.Type = CommandType.CreateProfile;
-                    i++;
-                    if (i < args.Length) cmd.Profile = args[i];
-                    i++;
-                    if (i < args.Length && (args[i] == "--packages" || args[i] == "-P"))
+                    switch (subCmd)
                     {
-                        i++;
-                        var pkgs = new List<string>();
-                        while (i < args.Length && !args[i].StartsWith('-'))
-                            pkgs.Add(args[i++]);
-                        cmd.Packages = [.. pkgs];
-                    }
-                    if (i < args.Length && (args[i] == "--dotfiles" || args[i] == "-D"))
-                    {
-                        i++;
-                        var dots = new List<string>();
-                        while (i < args.Length && !args[i].StartsWith('-'))
-                            dots.Add(args[i++]);
-                        cmd.Dotfiles = [.. dots];
-                    }
-                    break;
+                        case "create":
+                        case "c":
+                            cmd.ProfileAction = ProfileAction.Create;
+                            if (i < args.Length) cmd.Profile = args[i++];
+                            while (i < args.Length)
+                            {
+                                switch (args[i])
+                                {
+                                    case "--packages":
+                                    case "-P":
+                                        i++;
+                                        var pkgs = new List<string>();
+                                        while (i < args.Length && !args[i].StartsWith('-'))
+                                            pkgs.Add(args[i++]);
+                                        cmd.Packages = [.. pkgs];
+                                        continue;
+                                    case "--dotfiles":
+                                    case "-D":
+                                        i++;
+                                        var dots = new List<string>();
+                                        while (i < args.Length && !args[i].StartsWith('-'))
+                                            dots.Add(args[i++]);
+                                        cmd.Dotfiles = [.. dots];
+                                        continue;
+                                    default:
+                                        i++;
+                                        break;
+                                }
+                                i++;
+                            }
+                            break;
 
-                case "--set-dir":
-                    cmd.Type = CommandType.SetDir;
-                    i++;
-                    if (i < args.Length) cmd.DotfilesDir = args[i];
-                    break;
+                        case "edit-name":
+                        case "en":
+                            cmd.ProfileAction = ProfileAction.EditName;
+                            if (i < args.Length) cmd.Profile = args[i++];
+                            if (i < args.Length) cmd.NewName = args[i];
+                            break;
 
-                default:
-                    i++;
-                    break;
-            }
+                        case "edit-packages":
+                        case "ep":
+                            cmd.ProfileAction = ProfileAction.EditPackages;
+                            if (i < args.Length) cmd.Profile = args[i++];
+                            while (i < args.Length)
+                            {
+                                if (args[i] == "--packages" || args[i] == "-P")
+                                {
+                                    i++;
+                                    var pkgs = new List<string>();
+                                    while (i < args.Length && !args[i].StartsWith('-'))
+                                        pkgs.Add(args[i++]);
+                                    cmd.Packages = [.. pkgs];
+                                    continue;
+                                }
+                                i++;
+                            }
+                            break;
+
+                        case "edit-dotfiles":
+                        case "ed":
+                            cmd.ProfileAction = ProfileAction.EditDotfiles;
+                            if (i < args.Length) cmd.Profile = args[i++];
+                            while (i < args.Length)
+                            {
+                                if (args[i] == "--dotfiles" || args[i] == "-D")
+                                {
+                                    i++;
+                                    var dots = new List<string>();
+                                    while (i < args.Length && !args[i].StartsWith('-'))
+                                        dots.Add(args[i++]);
+                                    cmd.Dotfiles = [.. dots];
+                                    continue;
+                                }
+                                i++;
+                            }
+                            break;
+
+                        case "apply":
+                        case "a":
+                            cmd.ProfileAction = ProfileAction.Apply;
+                            if (i < args.Length) cmd.Profile = args[i];
+                            break;
+
+                        default:
+                            // profile <nombre> = apply implícito
+                            cmd.ProfileAction = ProfileAction.Apply;
+                            cmd.Profile = subCmd;
+                            break;
+                    }
+                }
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // STATUS
+            // ══════════════════════════════════════════════════════════════
+            case "status":
+            case "st":
+                cmd.Type = CommandType.Status;
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // SCRIPT
+            // ══════════════════════════════════════════════════════════════
+            case "script":
+            case "S":
+            case "run":
+                cmd.Type = CommandType.Script;
+                if (i < args.Length) cmd.ScriptName = args[i];
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // SET-DIR
+            // ══════════════════════════════════════════════════════════════
+            case "set-dir":
+            case "sd":
+                cmd.Type = CommandType.SetDir;
+                if (i < args.Length) cmd.DotfilesDir = args[i];
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            // DEFAULT: si no matchea, mostrar error
+            // ══════════════════════════════════════════════════════════════
+            default:
+                Printer.Error($"Comando desconocido: '{mainCmd}', utilize -h para obtener ayuda");
+                Console.WriteLine();
+                break;
         }
 
         return cmd;
@@ -157,46 +298,92 @@ Dotfiles Manager — CLI
 
 Uso: dotfiles-manager <comando> [opciones]
 
-Comandos:
-  -a, --apply                  Aplicar dotfiles o paquetes
-    --profile, -p <nombre>     Aplicar un perfil por nombre
-    --system, -s <rutas...>    Aplicar symlinks de sistema
-    --home, -H <paquetes...>   Aplicar paquetes stow del home
+╔══════════════════════════════════════════════════════════════╗
+║  APLICAR                                                     ║
+╚══════════════════════════════════════════════════════════════╝
 
-  --add                        Agregar archivos al repo
-    <ruta>                     Ruta del archivo/carpeta en home
-    --package, -p <paquete>    Paquete stow destino
-    --system, -s <ruta>        Agregar al sistema
+  apply, a --profile, -p <nombre>
+        Aplicar un perfil
 
-  -d, --delete                 Eliminar symlinks o archivos del repo
-    --package, -p <paquete>    Eliminar de un paquete stow
-    --action, -A <accion>      symlinks | restore | all
-    --system, -s <rutas...>    Eliminar symlinks de sistema
+  apply, a --home, -H <paquetes...>
+        Aplicar paquetes stow del home
 
-  --status                     Ver estado de symlinks
+  apply, a --system, -s <rutas...>
+        Aplicar symlinks de sistema
 
-  --script, -S <nombre>        Ejecutar un script del repo
+╔══════════════════════════════════════════════════════════════╗
+║  AGREGAR                                                     ║
+╚══════════════════════════════════════════════════════════════╝
 
-  --profile, -p <nombre>       Aplicar un perfil (atajo)
+  add --home, -H <ruta> --package, -p <paquete>
+        Agregar archivo/carpeta del home a un paquete stow
 
-  --create-profile <nombre>    Crear un perfil nuevo
-    --packages, -P <paq...>    Paquetes a incluir
-    --dotfiles, -D <dot...>    Dotfiles a incluir
+  add --system, -s <ruta>
+        Agregar archivo/carpeta al sistema
 
-  --set-dir <ruta>             Cambiar el directorio del repo de dotfiles
+╔══════════════════════════════════════════════════════════════╗
+║  ELIMINAR                                                    ║
+╚══════════════════════════════════════════════════════════════╝
 
-  -h, --help                   Mostrar esta ayuda
+  delete, d, del --home, -H <paquete> --action, -A <accion>
+        Eliminar symlinks de un paquete stow
+        Acciones: symlinks | restore | all
 
-Ejemplos:
-  dotfiles-manager -a --profile gaming
-  dotfiles-manager -a -s /etc/hosts /etc/mkinitcpio.conf
-  dotfiles-manager -a -H nvim bash
-  dotfiles-manager --add ~/.config/hypr --package hyprland
-  dotfiles-manager --add -s /etc/grub/grub.cfg
-  dotfiles-manager -d -p nvim -A restore
-  dotfiles-manager -d -s /etc/hosts
-  dotfiles-manager --create-profile servidor --packages nginx docker --dotfiles bash
-  dotfiles-manager --set-dir /home/user/mis-dotfiles
+  delete, d, del --system, -s <rutas...> --action, -A <accion>
+        Eliminar symlinks de sistema
+
+╔══════════════════════════════════════════════════════════════╗
+║  PERFILES                                                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+  profile, p create, c <nombre> --packages, -P <...> --dotfiles, -D <...>
+        Crear un perfil nuevo
+
+  profile, p edit-name, en <viejo> <nuevo>
+        Cambiar nombre de un perfil
+
+  profile, p edit-packages, ep <nombre> --packages, -P <...>
+        Editar paquetes de un perfil
+
+  profile, p edit-dotfiles, ed <nombre> --dotfiles, -D <...>
+        Editar dotfiles de un perfil
+
+  profile, p apply, a <nombre>
+        Aplicar un perfil (atajo: solo el nombre)
+
+╔══════════════════════════════════════════════════════════════╗
+║  OTROS                                                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+  status, st
+        Ver estado de symlinks
+
+  script, S, run <nombre>
+        Ejecutar un script del repo
+
+  set-dir, sd <ruta>
+        Cambiar el directorio del repo de dotfiles
+
+  -h, --help, help
+        Mostrar esta ayuda
+
+╔══════════════════════════════════════════════════════════════╗
+║  EJEMPLOS                                                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+  dm a -p gaming
+  dm apply --system /etc/hosts /etc/mkinitcpio.conf
+  dm a -H nvim bash
+  dm add -H ~/.config/hypr -p hyprland
+  dm add -s /etc/grub/grub.cfg
+  dm d -H nvim -A restore
+  dm delete -s /etc/hosts -A all
+  dm p create servidor -P nginx docker -D bash
+  dm profile en viejo nuevo
+  dm p apply gaming
+  dm status
+  dm S mi-script
+  dm sd /home/user/mis-dotfiles
 ");
     }
 }
@@ -204,14 +391,15 @@ Ejemplos:
 internal class CliCommand
 {
     public CommandType Type { get; set; } = CommandType.None;
+    public ProfileAction ProfileAction { get; set; } = ProfileAction.None;
     public string? Profile { get; set; }
+    public string? NewName { get; set; }
     public string[] Packages { get; set; } = [];
     public string[] SystemPaths { get; set; } = [];
     public string? Action { get; set; }
     public string? AddHomePath { get; set; }
     public string? AddHomePackage { get; set; }
     public bool AddToSystem { get; set; }
-    public bool ApplySystem { get; set; }
     public bool DeleteSystem { get; set; }
     public string? ScriptName { get; set; }
     public string[] Dotfiles { get; set; } = [];
@@ -220,15 +408,10 @@ internal class CliCommand
 
 internal enum CommandType
 {
-    None,
-    Menu,
-    Help,
-    Apply,
-    Add,
-    Delete,
-    Status,
-    Script,
-    Profile,
-    CreateProfile,
-    SetDir
+    None, Menu, Help, Apply, Add, Delete, Status, Script, Profile, SetDir
+}
+
+internal enum ProfileAction
+{
+    None, Create, EditName, EditPackages, EditDotfiles, Apply
 }
