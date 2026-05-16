@@ -39,7 +39,9 @@ internal static class ArgParser
                         case "--profile":
                         case "-p":
                             i++;
-                            if (i < args.Length) cmd.Profile = args[i];
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta el nombre del perfil después de --profile.");
+                            cmd.Profile = args[i];
                             break;
                         case "--home":
                         case "-H":
@@ -47,6 +49,8 @@ internal static class ArgParser
                             var homePkgs = new List<string>();
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 homePkgs.Add(args[i++]);
+                            if (homePkgs.Count == 0)
+                                return Error("Faltan los nombres de paquetes después de --home.");
                             cmd.Packages = [.. homePkgs];
                             continue;
                         case "--system":
@@ -55,14 +59,18 @@ internal static class ArgParser
                             var sysPaths = new List<string>();
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 sysPaths.Add(args[i++]);
+                            if (sysPaths.Count == 0)
+                                return Error("Faltan las rutas de sistema después de --system.");
                             cmd.SystemPaths = [.. sysPaths];
                             continue;
                         default:
-                            i++;
-                            break;
+                            return Error($"Opción desconocida para apply: '{args[i]}'.");
                     }
                     i++;
                 }
+
+                if (cmd.Profile is null && cmd.Packages.Length == 0 && cmd.SystemPaths.Length == 0)
+                    return Error("apply requiere --profile, --home o --system.");
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -70,6 +78,8 @@ internal static class ArgParser
             // ══════════════════════════════════════════════════════════════
             case "add":
                 cmd.Type = CommandType.Add;
+                bool hasTarget = false;
+
                 while (i < args.Length)
                 {
                     switch (args[i])
@@ -77,32 +87,39 @@ internal static class ArgParser
                         case "--home":
                         case "-H":
                             i++;
-                            if (i < args.Length)
-                            {
-                                cmd.AddHomePath = args[i];
-                                cmd.AddToSystem = false;
-                            }
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta la ruta del archivo/carpeta después de --home.");
+                            cmd.AddHomePath = args[i];
+                            cmd.AddToSystem = false;
+                            hasTarget = true;
                             break;
                         case "--system":
                         case "-s":
                             i++;
-                            if (i < args.Length)
-                            {
-                                cmd.SystemPaths = [args[i]];
-                                cmd.AddToSystem = true;
-                            }
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta la ruta del archivo/carpeta después de --system.");
+                            cmd.SystemPaths = [args[i]];
+                            cmd.AddToSystem = true;
+                            hasTarget = true;
                             break;
                         case "--package":
                         case "-p":
                             i++;
-                            if (i < args.Length) cmd.AddHomePackage = args[i];
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta el nombre del paquete después de --package.");
+                            cmd.AddHomePackage = args[i];
                             break;
                         default:
-                            i++;
-                            break;
+                            return Error($"Opción desconocida para add: '{args[i]}'.");
                     }
                     i++;
                 }
+
+                if (!hasTarget)
+                    return Error("add requiere --home <ruta> o --system <ruta>.");
+
+                if (cmd.AddHomePath is not null && cmd.AddHomePackage is null)
+                    return Error("add con --home requiere --package <nombre>.");
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -112,6 +129,8 @@ internal static class ArgParser
             case "d":
             case "del":
                 cmd.Type = CommandType.Delete;
+                bool deleteTargetSet = false;
+
                 while (i < args.Length)
                 {
                     switch (args[i])
@@ -119,30 +138,45 @@ internal static class ArgParser
                         case "--home":
                         case "-H":
                             cmd.DeleteSystem = false;
+                            deleteTargetSet = true;
                             i++;
-                            if (i < args.Length && !args[i].StartsWith('-'))
-                                cmd.Packages = [args[i]];
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta el nombre del paquete después de --home.");
+                            cmd.Packages = [args[i]];
                             break;
                         case "--system":
                         case "-s":
                             cmd.DeleteSystem = true;
+                            deleteTargetSet = true;
                             i++;
                             var sysPaths = new List<string>();
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 sysPaths.Add(args[i++]);
+                            if (sysPaths.Count == 0)
+                                return Error("Faltan las rutas de sistema después de --system.");
                             cmd.SystemPaths = [.. sysPaths];
                             continue;
                         case "--action":
                         case "-A":
                             i++;
-                            if (i < args.Length) cmd.Action = args[i];
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta la acción después de --action.");
+                            string action = args[i].ToLower();
+                            if (action is not "symlinks" and not "restore" and not "all")
+                                return Error($"Acción inválida: '{action}'. Usar: symlinks, restore, all.");
+                            cmd.Action = action;
                             break;
                         default:
-                            i++;
-                            break;
+                            return Error($"Opción desconocida para delete: '{args[i]}'.");
                     }
                     i++;
                 }
+
+                if (!deleteTargetSet)
+                    return Error("delete requiere --home o --system.");
+
+                if (cmd.Action is null)
+                    return Error("delete requiere --action (symlinks, restore, all).");
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -151,102 +185,121 @@ internal static class ArgParser
             case "profile":
             case "p":
                 cmd.Type = CommandType.Profile;
-                if (i < args.Length)
+                if (i >= args.Length)
+                    return Error("profile requiere un subcomando: create, edit-name, edit-packages, edit-dotfiles, apply.");
+
+                string subCmd = args[i].ToLower();
+                i++;
+
+                switch (subCmd)
                 {
-                    string subCmd = args[i].ToLower();
-                    i++;
+                    case "create":
+                    case "c":
+                        cmd.ProfileAction = ProfileAction.Create;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre del perfil para create.");
+                        cmd.Profile = args[i];
+                        i++;
 
-                    switch (subCmd)
-                    {
-                        case "create":
-                        case "c":
-                            cmd.ProfileAction = ProfileAction.Create;
-                            if (i < args.Length) cmd.Profile = args[i++];
-                            while (i < args.Length)
+                        while (i < args.Length)
+                        {
+                            switch (args[i])
                             {
-                                switch (args[i])
-                                {
-                                    case "--packages":
-                                    case "-P":
-                                        i++;
-                                        var pkgs = new List<string>();
-                                        while (i < args.Length && !args[i].StartsWith('-'))
-                                            pkgs.Add(args[i++]);
-                                        cmd.Packages = [.. pkgs];
-                                        continue;
-                                    case "--dotfiles":
-                                    case "-D":
-                                        i++;
-                                        var dots = new List<string>();
-                                        while (i < args.Length && !args[i].StartsWith('-'))
-                                            dots.Add(args[i++]);
-                                        cmd.Dotfiles = [.. dots];
-                                        continue;
-                                    default:
-                                        i++;
-                                        break;
-                                }
-                                i++;
-                            }
-                            break;
-
-                        case "edit-name":
-                        case "en":
-                            cmd.ProfileAction = ProfileAction.EditName;
-                            if (i < args.Length) cmd.Profile = args[i++];
-                            if (i < args.Length) cmd.NewName = args[i];
-                            break;
-
-                        case "edit-packages":
-                        case "ep":
-                            cmd.ProfileAction = ProfileAction.EditPackages;
-                            if (i < args.Length) cmd.Profile = args[i++];
-                            while (i < args.Length)
-                            {
-                                if (args[i] == "--packages" || args[i] == "-P")
-                                {
+                                case "--packages":
+                                case "-P":
                                     i++;
                                     var pkgs = new List<string>();
                                     while (i < args.Length && !args[i].StartsWith('-'))
                                         pkgs.Add(args[i++]);
                                     cmd.Packages = [.. pkgs];
                                     continue;
-                                }
-                                i++;
-                            }
-                            break;
-
-                        case "edit-dotfiles":
-                        case "ed":
-                            cmd.ProfileAction = ProfileAction.EditDotfiles;
-                            if (i < args.Length) cmd.Profile = args[i++];
-                            while (i < args.Length)
-                            {
-                                if (args[i] == "--dotfiles" || args[i] == "-D")
-                                {
+                                case "--dotfiles":
+                                case "-D":
                                     i++;
                                     var dots = new List<string>();
                                     while (i < args.Length && !args[i].StartsWith('-'))
                                         dots.Add(args[i++]);
                                     cmd.Dotfiles = [.. dots];
                                     continue;
-                                }
-                                i++;
+                                default:
+                                    return Error($"Opción desconocida para profile create: '{args[i]}'.");
                             }
-                            break;
+                            i++;
+                        }
+                        break;
 
-                        case "apply":
-                        case "a":
-                            cmd.ProfileAction = ProfileAction.Apply;
-                            if (i < args.Length) cmd.Profile = args[i];
-                            break;
+                    case "edit-name":
+                    case "en":
+                        cmd.ProfileAction = ProfileAction.EditName;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre actual del perfil.");
+                        cmd.Profile = args[i];
+                        i++;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nuevo nombre del perfil.");
+                        cmd.NewName = args[i];
+                        break;
 
-                        default:
-                            // profile <nombre> = apply implícito
-                            cmd.ProfileAction = ProfileAction.Apply;
-                            cmd.Profile = subCmd;
-                            break;
-                    }
+                    case "edit-packages":
+                    case "ep":
+                        cmd.ProfileAction = ProfileAction.EditPackages;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre del perfil.");
+                        cmd.Profile = args[i];
+                        i++;
+                        if (i >= args.Length && (args[i] != "--packages" && args[i] != "-P"))
+                            return Error("Falta --packages para edit-packages.");
+                        while (i < args.Length)
+                        {
+                            if (args[i] == "--packages" || args[i] == "-P")
+                            {
+                                i++;
+                                var pkgs = new List<string>();
+                                while (i < args.Length && !args[i].StartsWith('-'))
+                                    pkgs.Add(args[i++]);
+                                cmd.Packages = [.. pkgs];
+                                continue;
+                            }
+                            i++;
+                        }
+                        if (cmd.Packages.Length == 0)
+                            return Error("edit-packages requiere --packages con al menos un paquete.");
+                        break;
+
+                    case "edit-dotfiles":
+                    case "ed":
+                        cmd.ProfileAction = ProfileAction.EditDotfiles;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre del perfil.");
+                        cmd.Profile = args[i];
+                        i++;
+                        while (i < args.Length)
+                        {
+                            if (args[i] == "--dotfiles" || args[i] == "-D")
+                            {
+                                i++;
+                                var dots = new List<string>();
+                                while (i < args.Length && !args[i].StartsWith('-'))
+                                    dots.Add(args[i++]);
+                                cmd.Dotfiles = [.. dots];
+                                continue;
+                            }
+                            i++;
+                        }
+                        if (cmd.Dotfiles.Length == 0)
+                            return Error("edit-dotfiles requiere --dotfiles con al menos un dotfile.");
+                        break;
+
+                    case "apply":
+                    case "a":
+                        cmd.ProfileAction = ProfileAction.Apply;
+                        if (i >= args.Length || args[i].StartsWith('-'))
+                            return Error("Falta el nombre del perfil para apply.");
+                        cmd.Profile = args[i];
+                        break;
+
+                    default:
+                        return Error($"Subcomando de perfil desconocido: '{subCmd}'.");
                 }
                 break;
 
@@ -265,7 +318,9 @@ internal static class ArgParser
             case "S":
             case "run":
                 cmd.Type = CommandType.Script;
-                if (i < args.Length) cmd.ScriptName = args[i];
+                if (i >= args.Length || args[i].StartsWith('-'))
+                    return Error("Falta el nombre del script.");
+                cmd.ScriptName = args[i];
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -274,23 +329,33 @@ internal static class ArgParser
             case "set-dir":
             case "sd":
                 cmd.Type = CommandType.SetDir;
-                if (i < args.Length) cmd.DotfilesDir = args[i];
+                if (i >= args.Length || args[i].StartsWith('-'))
+                    return Error("Falta la ruta del directorio.");
+                cmd.DotfilesDir = args[i];
                 break;
 
             // ══════════════════════════════════════════════════════════════
-            // DEFAULT: si no matchea, mostrar error
+            // COMANDO DESCONOCIDO
             // ══════════════════════════════════════════════════════════════
             default:
-                Printer.Error($"Comando desconocido: '{mainCmd}', utilize -h para obtener ayuda");
+                Printer.Error($"Comando desconocido: '{mainCmd}'");
                 Console.WriteLine();
-                break;
+                ShowHelp();
+                return new CliCommand { Type = CommandType.Error };
         }
 
         return cmd;
     }
 
-    // ── Help ──────────────────────────────────────────────────────────────
+    private static CliCommand Error(string message)
+    {
+        Printer.Error(message);
+        Console.WriteLine();
+        ShowHelp();
+        return new CliCommand { Type = CommandType.Error };
+    }
 
+    // ── Help (sin cambios) ──────────────────────────────────────────────────
     public static void ShowHelp()
     {
         Console.WriteLine(@"
@@ -349,7 +414,7 @@ Uso: dotfiles-manager <comando> [opciones]
         Editar dotfiles de un perfil
 
   profile, p apply, a <nombre>
-        Aplicar un perfil (atajo: solo el nombre)
+        Aplicar un perfil
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  OTROS                                                       ║
@@ -408,7 +473,7 @@ internal class CliCommand
 
 internal enum CommandType
 {
-    None, Menu, Help, Apply, Add, Delete, Status, Script, Profile, SetDir
+    None, Menu, Help, Apply, Add, Delete, Status, Script, Profile, SetDir, Error
 }
 
 internal enum ProfileAction

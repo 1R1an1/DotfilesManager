@@ -58,6 +58,10 @@ internal static class Program
     {
         switch (cmd.Type)
         {
+            case CommandType.Error:
+                // El error ya se mostró en ArgParser
+                break;
+
             case CommandType.Help:
                 ArgParser.ShowHelp();
                 break;
@@ -74,15 +78,15 @@ internal static class Program
             case CommandType.Add:
                 if (cmd.AddToSystem && cmd.SystemPaths.Length > 0)
                     AddOp.AddToSystem(cmd.SystemPaths[0]);
-                else if (cmd.AddHomePath is not null)
-                    AddOp.AddToHome(cmd.AddHomePath, cmd.AddHomePackage ?? "default");
+                else if (cmd.AddHomePath is not null && cmd.AddHomePackage is not null)
+                    AddOp.AddToHome(cmd.AddHomePath, cmd.AddHomePackage);
                 break;
 
             case CommandType.Delete:
                 if (cmd.DeleteSystem && cmd.SystemPaths.Length > 0)
-                    DeleteOp.DeleteSystem(cmd.SystemPaths, cmd.Action ?? "symlinks");
+                    DeleteOp.DeleteSystem(cmd.SystemPaths, cmd.Action!);
                 else if (cmd.Packages.Length > 0)
-                    DeleteOp.DeleteHome(cmd.Packages[0], cmd.Action ?? "symlinks");
+                    DeleteOp.DeleteHome(cmd.Packages[0], cmd.Action!);
                 break;
 
             case CommandType.Status:
@@ -90,32 +94,32 @@ internal static class Program
                 break;
 
             case CommandType.Script:
-                ExecuteOp.RunScript(cmd.ScriptName ?? "");
+                ExecuteOp.RunScript(cmd.ScriptName!);
                 break;
 
             case CommandType.Profile:
                 switch (cmd.ProfileAction)
                 {
                     case ProfileAction.Create:
-                        CreateProfileOp.Create(cmd.Profile ?? "", cmd.Packages, cmd.Dotfiles);
+                        CreateProfileOp.Create(cmd.Profile!, cmd.Packages, cmd.Dotfiles);
                         break;
                     case ProfileAction.EditName:
-                        EditProfileOp.EditName(cmd.Profile ?? "", cmd.NewName ?? "");
+                        EditProfileOp.EditName(cmd.Profile!, cmd.NewName!);
                         break;
                     case ProfileAction.EditPackages:
-                        EditProfileOp.EditPackages(cmd.Profile ?? "", cmd.Packages);
+                        EditProfileOp.EditPackages(cmd.Profile!, cmd.Packages);
                         break;
                     case ProfileAction.EditDotfiles:
-                        EditProfileOp.EditDotfiles(cmd.Profile ?? "", cmd.Dotfiles);
+                        EditProfileOp.EditDotfiles(cmd.Profile!, cmd.Dotfiles);
                         break;
                     case ProfileAction.Apply:
-                        ApplyProfileOp.ApplyProfile(cmd.Profile ?? "");
+                        ApplyProfileOp.ApplyProfile(cmd.Profile!);
                         break;
                 }
                 break;
 
             case CommandType.SetDir:
-                Env.SetDotfilesDir(cmd.DotfilesDir ?? "");
+                Env.SetDotfilesDir(cmd.DotfilesDir!);
                 break;
         }
     }
