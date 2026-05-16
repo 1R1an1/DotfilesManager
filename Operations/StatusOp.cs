@@ -58,21 +58,36 @@ internal static class StatusOp
         {
             foreach (string pkg in Env.GetPackages())
             {
-                var (ok, stdout, stderr) = Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg);
-                Printer.Info($"  {pkg}: {(ok ? "OK" : $"Conflictos\n{stderr}")}");
+                var status = StatusChecker.Check(pkg);
+                string estado = status.Overall switch
+                {
+                    LinkStatus.Ok => "OK",
+                    LinkStatus.Conflict => "Parcial",
+                    LinkStatus.NotApplied => "No aplicado",
+                    LinkStatus.Broken => "Rotos",
+                    _ => "Vacío"
+                };
+                List<string> detalles = new();
+                if (status.Ok > 0) detalles.Add($"{Dim}ok:{status.Ok}{Reset}");
+                if (status.Conflict > 0) detalles.Add($"{Red}conflictos:{status.Conflict}{Reset}");
+                if (status.NotApplied > 0) detalles.Add($"{Yellow}sin aplicar:{status.NotApplied}{Reset}");
+                if (status.Broken > 0) detalles.Add($"{Red}rotos:{status.Broken}{Reset}");
+
+                string detalle = detalles.Count > 0 ? $" | {string.Join(" ", detalles)}" : "";
+                Printer.Info($"  {pkg}: {estado}{detalle}");
             }
         }
 
-        if (Directory.Exists(Env.SystemDir))
-        {
-            Printer.Info("Symlinks de sistema:");
-            foreach (string file in Directory.GetFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
-            {
-                string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                bool exists = File.Exists(dest) || Directory.Exists(dest);
-                bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
-                Printer.Info($"  {dest}: {(isSymlink ? "OK" : "NO APLICADO")}");
-            }
-        }
+        // if (Directory.Exists(Env.SystemDir))
+        // {
+        //     Printer.Info("Symlinks de sistema:");
+        //     foreach (string file in Directory.GetFiles(Env.SystemDir, "*", SearchOption.AllDirectories))
+        //     {
+        //         string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
+        //         bool exists = File.Exists(dest) || Directory.Exists(dest);
+        //         bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
+        //         Printer.Info($"  {dest}: {(isSymlink ? "OK" : "NO APLICADO")}");
+        //     }
+        // }
     }
 }

@@ -161,14 +161,31 @@ internal static class EditProfileOp
             return;
         }
 
-        int newIdx = newPos - 1;
-        if (newIdx == idx) return;
+        // Si el destino es la misma posición, no hacer nada
+        if (newPos - 1 == idx)
+        {
+            Printer.Warn("El paso ya está en esa posición.");
+            Printer.PressEnterToContinue();
+            return;
+        }
 
         var paso = perfil.Pasos[idx];
-        perfil.Pasos.RemoveAt(idx);
-        // Si la nueva posición es mayor que la original, al quitar el elemento los índices se corren
-        if (newIdx > idx) newIdx--;
-        perfil.Pasos.Insert(newIdx, paso);
+
+        // Caso especial: mover al final de la lista
+        if (newPos == perfil.Pasos.Count)
+        {
+            perfil.Pasos.RemoveAt(idx);
+            perfil.Pasos.Add(paso);
+        }
+        else
+        {
+            int newIdx = newPos - 1;
+            perfil.Pasos.RemoveAt(idx);
+            // Ajustar índice si la inserción es después del elemento eliminado
+            if (newIdx > idx) newIdx--;
+            perfil.Pasos.Insert(newIdx, paso);
+        }
+
         Printer.Success($"Paso movido de posición {idx + 1} a {newPos}.");
         Printer.PressEnterToContinue();
     }
