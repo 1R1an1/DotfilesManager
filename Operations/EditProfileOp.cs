@@ -110,9 +110,15 @@ internal static class EditProfileOp
         switch (paso.Tipo)
         {
             case StepType.Script:
-                Console.Write($"Nuevo nombre de script ({paso.Valor}): ");
-                string? nuevo = Console.ReadLine()?.Trim();
-                if (!string.IsNullOrWhiteSpace(nuevo)) paso.Valor = nuevo;
+                string[] scripts = ExecuteOp.GetScripts();
+                if (scripts.Length == 0)
+                {
+                    Printer.Warn("No hay scripts.");
+                    break;
+                }
+                int sIdx = Menu.SelectOne($"Nuevo script (actual: {paso.Valor})", scripts);
+                if (sIdx != -1)
+                    paso.Valor = scripts[sIdx];
                 break;
             case StepType.Dotfile:
                 string[] dotfiles = Env.GetPackages();

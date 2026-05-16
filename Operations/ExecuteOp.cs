@@ -62,4 +62,14 @@ internal static class ExecuteOp
         else
             Printer.Error($"Script falló ({code}): {stderr}");
     }
+
+    public static string[] GetScripts() =>
+    Directory.Exists(Env.ScriptsDir)
+        ? Directory.GetFiles(Env.ScriptsDir)
+            .Select(Path.GetFileName)
+            .Where(n => n is not null)
+            .Cast<string>()
+            .OrderBy(n => n)
+            .ToArray()
+        : [];
 }

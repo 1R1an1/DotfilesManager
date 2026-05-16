@@ -43,8 +43,15 @@ internal static class CreateProfileOp
             switch (tipo)
             {
                 case StepType.Script:
-                    Console.Write("Nombre del script: ");
-                    valor = Console.ReadLine()?.Trim() ?? "";
+                    string[] scripts = ExecuteOp.GetScripts();
+                    if (scripts.Length == 0)
+                    {
+                        Printer.Warn($"No hay scripts en: {Env.ScriptsDir}.");
+                        return;
+                    }
+                    int sIdx = Menu.SelectOne("Seleccioná script", scripts);
+                    if (sIdx != -1)
+                        valor = scripts[sIdx];
                     break;
                 case StepType.Dotfile:
                     string[] dotfiles = Env.GetPackages();
