@@ -40,7 +40,7 @@ internal static class ArgParser
                         case "-p":
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta el nombre del perfil después de --profile.");
+                                return Error("Falta el nombre del perfil después de --profile.", mainCmd);
                             cmd.Profile = args[i];
                             break;
                         case "--home":
@@ -50,7 +50,7 @@ internal static class ArgParser
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 homePkgs.Add(args[i++]);
                             if (homePkgs.Count == 0)
-                                return Error("Faltan los nombres de paquetes después de --home.");
+                                return Error("Faltan los nombres de paquetes después de --home.", mainCmd);
                             cmd.Packages = [.. homePkgs];
                             continue;
                         case "--system":
@@ -60,17 +60,17 @@ internal static class ArgParser
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 sysPaths.Add(args[i++]);
                             if (sysPaths.Count == 0)
-                                return Error("Faltan las rutas de sistema después de --system.");
+                                return Error("Faltan las rutas de sistema después de --system.", mainCmd);
                             cmd.SystemPaths = [.. sysPaths];
                             continue;
                         default:
-                            return Error($"Opción desconocida para apply: '{args[i]}'.");
+                            return Error($"Opción desconocida para apply: '{args[i]}'.", mainCmd);
                     }
                     i++;
                 }
 
                 if (cmd.Profile is null && cmd.Packages.Length == 0 && cmd.SystemPaths.Length == 0)
-                    return Error("apply requiere --profile, --home o --system.");
+                    return Error("apply requiere --profile, --home o --system.", mainCmd);
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -88,7 +88,7 @@ internal static class ArgParser
                         case "-H":
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta la ruta del archivo/carpeta después de --home.");
+                                return Error("Falta la ruta del archivo/carpeta después de --home.", mainCmd);
                             cmd.AddHomePath = args[i];
                             cmd.AddToSystem = false;
                             hasTarget = true;
@@ -97,7 +97,7 @@ internal static class ArgParser
                         case "-s":
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta la ruta del archivo/carpeta después de --system.");
+                                return Error("Falta la ruta del archivo/carpeta después de --system.", mainCmd);
                             cmd.SystemPaths = [args[i]];
                             cmd.AddToSystem = true;
                             hasTarget = true;
@@ -106,20 +106,20 @@ internal static class ArgParser
                         case "-p":
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta el nombre del paquete después de --package.");
+                                return Error("Falta el nombre del paquete después de --package.", mainCmd);
                             cmd.AddHomePackage = args[i];
                             break;
                         default:
-                            return Error($"Opción desconocida para add: '{args[i]}'.");
+                            return Error($"Opción desconocida para add: '{args[i]}'.", mainCmd);
                     }
                     i++;
                 }
 
                 if (!hasTarget)
-                    return Error("add requiere --home <ruta> o --system <ruta>.");
+                    return Error("add requiere --home <ruta> o --system <ruta>.", mainCmd);
 
                 if (cmd.AddHomePath is not null && cmd.AddHomePackage is null)
-                    return Error("add con --home requiere --package <nombre>.");
+                    return Error("add con --home requiere --package <nombre>.", mainCmd);
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -141,7 +141,7 @@ internal static class ArgParser
                             deleteTargetSet = true;
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta el nombre del paquete después de --home.");
+                                return Error("Falta el nombre del paquete después de --home.", mainCmd);
                             cmd.Packages = [args[i]];
                             break;
                         case "--system":
@@ -153,30 +153,30 @@ internal static class ArgParser
                             while (i < args.Length && !args[i].StartsWith('-'))
                                 sysPaths.Add(args[i++]);
                             if (sysPaths.Count == 0)
-                                return Error("Faltan las rutas de sistema después de --system.");
+                                return Error("Faltan las rutas de sistema después de --system.", mainCmd);
                             cmd.SystemPaths = [.. sysPaths];
                             continue;
                         case "--action":
                         case "-A":
                             i++;
                             if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta la acción después de --action.");
+                                return Error("Falta la acción después de --action.", mainCmd);
                             string action = args[i].ToLower();
                             if (action is not "symlinks" and not "restore" and not "all")
-                                return Error($"Acción inválida: '{action}'. Usar: symlinks, restore, all.");
+                                return Error($"Acción inválida: '{action}'. Usar: symlinks, restore, all.", mainCmd);
                             cmd.Action = action;
                             break;
                         default:
-                            return Error($"Opción desconocida para delete: '{args[i]}'.");
+                            return Error($"Opción desconocida para delete: '{args[i]}'.", mainCmd);
                     }
                     i++;
                 }
 
                 if (!deleteTargetSet)
-                    return Error("delete requiere --home o --system.");
+                    return Error("delete requiere --home o --system.", mainCmd);
 
                 if (cmd.Action is null)
-                    return Error("delete requiere --action (symlinks, restore, all).");
+                    return Error("delete requiere --action (symlinks, restore, all).", mainCmd);
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -186,7 +186,7 @@ internal static class ArgParser
             case "p":
                 cmd.Type = CommandType.Profile;
                 if (i >= args.Length)
-                    return Error("profile requiere un subcomando: create, edit-name, edit-packages, edit-dotfiles, apply.");
+                    return Error("profile requiere un subcomando: create, edit-name, edit-packages, edit-dotfiles, apply.", mainCmd);
 
                 string subCmd = args[i].ToLower();
                 i++;
@@ -197,7 +197,7 @@ internal static class ArgParser
                     case "c":
                         cmd.ProfileAction = ProfileAction.Create;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nombre del perfil para create.");
+                            return Error("Falta el nombre del perfil para create.", mainCmd);
                         cmd.Profile = args[i];
                         i++;
 
@@ -222,7 +222,7 @@ internal static class ArgParser
                                     cmd.Dotfiles = [.. dots];
                                     continue;
                                 default:
-                                    return Error($"Opción desconocida para profile create: '{args[i]}'.");
+                                    return Error($"Opción desconocida para profile create: '{args[i]}'.", mainCmd);
                             }
                             i++;
                         }
@@ -232,11 +232,11 @@ internal static class ArgParser
                     case "en":
                         cmd.ProfileAction = ProfileAction.EditName;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nombre actual del perfil.");
+                            return Error("Falta el nombre actual del perfil.", mainCmd);
                         cmd.Profile = args[i];
                         i++;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nuevo nombre del perfil.");
+                            return Error("Falta el nuevo nombre del perfil.", mainCmd);
                         cmd.NewName = args[i];
                         break;
 
@@ -244,11 +244,11 @@ internal static class ArgParser
                     case "ep":
                         cmd.ProfileAction = ProfileAction.EditPackages;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nombre del perfil.");
+                            return Error("Falta el nombre del perfil.", mainCmd);
                         cmd.Profile = args[i];
                         i++;
                         if (i >= args.Length && (args[i] != "--packages" && args[i] != "-P"))
-                            return Error("Falta --packages para edit-packages.");
+                            return Error("Falta --packages para edit-packages.", mainCmd);
                         while (i < args.Length)
                         {
                             if (args[i] == "--packages" || args[i] == "-P")
@@ -263,14 +263,14 @@ internal static class ArgParser
                             i++;
                         }
                         if (cmd.Packages.Length == 0)
-                            return Error("edit-packages requiere --packages con al menos un paquete.");
+                            return Error("edit-packages requiere --packages con al menos un paquete.", mainCmd);
                         break;
 
                     case "edit-dotfiles":
                     case "ed":
                         cmd.ProfileAction = ProfileAction.EditDotfiles;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nombre del perfil.");
+                            return Error("Falta el nombre del perfil.", mainCmd);
                         cmd.Profile = args[i];
                         i++;
                         while (i < args.Length)
@@ -287,19 +287,19 @@ internal static class ArgParser
                             i++;
                         }
                         if (cmd.Dotfiles.Length == 0)
-                            return Error("edit-dotfiles requiere --dotfiles con al menos un dotfile.");
+                            return Error("edit-dotfiles requiere --dotfiles con al menos un dotfile.", mainCmd);
                         break;
 
                     case "apply":
                     case "a":
                         cmd.ProfileAction = ProfileAction.Apply;
                         if (i >= args.Length || args[i].StartsWith('-'))
-                            return Error("Falta el nombre del perfil para apply.");
+                            return Error("Falta el nombre del perfil para apply.", mainCmd);
                         cmd.Profile = args[i];
                         break;
 
                     default:
-                        return Error($"Subcomando de perfil desconocido: '{subCmd}'.");
+                        return Error($"Subcomando de perfil desconocido: '{subCmd}'.", mainCmd);
                 }
                 break;
 
@@ -319,7 +319,7 @@ internal static class ArgParser
             case "run":
                 cmd.Type = CommandType.Script;
                 if (i >= args.Length || args[i].StartsWith('-'))
-                    return Error("Falta el nombre del script.");
+                    return Error("Falta el nombre del script.", mainCmd);
                 cmd.ScriptName = args[i];
                 break;
 
@@ -330,7 +330,7 @@ internal static class ArgParser
             case "sd":
                 cmd.Type = CommandType.SetDir;
                 if (i >= args.Length || args[i].StartsWith('-'))
-                    return Error("Falta la ruta del directorio.");
+                    return Error("Falta la ruta del directorio.", mainCmd);
                 cmd.DotfilesDir = args[i];
                 break;
 
@@ -340,24 +340,31 @@ internal static class ArgParser
             default:
                 Printer.Error($"Comando desconocido: '{mainCmd}'");
                 Console.WriteLine();
-                ShowHelp();
+                ShowHelp(); // ayuda completa porque no sabemos qué sección
                 return new CliCommand { Type = CommandType.Error };
         }
 
         return cmd;
     }
 
-    private static CliCommand Error(string message)
+    private static CliCommand Error(string message, string? command = null)
     {
         Printer.Error(message);
         Console.WriteLine();
-        ShowHelp();
+        ShowHelp(command);
         return new CliCommand { Type = CommandType.Error };
     }
 
     // ── Help (sin cambios) ──────────────────────────────────────────────────
-    public static void ShowHelp()
+    public static void ShowHelp(string? command = null)
     {
+        if (command is not null)
+        {
+            ShowHelpSection(command);
+            return;
+        }
+
+        // Ayuda completa (sin cambios)
         Console.WriteLine(@"
 Dotfiles Manager — CLI
 
@@ -450,6 +457,122 @@ Uso: dotfiles-manager <comando> [opciones]
   dm S mi-script
   dm sd /home/user/mis-dotfiles
 ");
+    }
+
+    private static void ShowHelpSection(string command)
+    {
+        switch (command)
+        {
+            case "apply":
+            case "a":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  APLICAR                                                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  apply, a --profile, -p <nombre>
+        Aplicar un perfil
+
+  apply, a --home, -H <paquetes...>
+        Aplicar paquetes stow del home
+
+  apply, a --system, -s <rutas...>
+        Aplicar symlinks de sistema
+");
+                break;
+
+            case "add":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  AGREGAR                                                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  add --home, -H <ruta> --package, -p <paquete>
+        Agregar archivo/carpeta del home a un paquete stow
+
+  add --system, -s <ruta>
+        Agregar archivo/carpeta al sistema
+");
+                break;
+
+            case "delete":
+            case "d":
+            case "del":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  ELIMINAR                                                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+  delete, d, del --home, -H <paquete> --action, -A <accion>
+        Eliminar symlinks de un paquete stow
+        Acciones: symlinks | restore | all
+
+  delete, d, del --system, -s <rutas...> --action, -A <accion>
+        Eliminar symlinks de sistema
+");
+                break;
+
+            case "profile":
+            case "p":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  PERFILES                                                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+  profile, p create, c <nombre> --packages, -P <...> --dotfiles, -D <...>
+        Crear un perfil nuevo
+
+  profile, p edit-name, en <viejo> <nuevo>
+        Cambiar nombre de un perfil
+
+  profile, p edit-packages, ep <nombre> --packages, -P <...>
+        Editar paquetes de un perfil
+
+  profile, p edit-dotfiles, ed <nombre> --dotfiles, -D <...>
+        Editar dotfiles de un perfil
+
+  profile, p apply, a <nombre>
+        Aplicar un perfil
+");
+                break;
+
+            case "status":
+            case "st":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  STATUS                                                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+  status, st
+        Ver estado de symlinks
+");
+                break;
+
+            case "script":
+            case "S":
+            case "run":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  SCRIPT                                                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+  script, S, run <nombre>
+        Ejecutar un script del repo
+");
+                break;
+
+            case "set-dir":
+            case "sd":
+                Console.WriteLine(@"
+╔══════════════════════════════════════════════════════════════╗
+║  SET-DIR                                                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  set-dir, sd <ruta>
+        Cambiar el directorio del repo de dotfiles
+");
+                break;
+        }
     }
 }
 
