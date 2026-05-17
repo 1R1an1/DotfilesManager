@@ -96,6 +96,25 @@ internal static class Program
                     AddOp.AddToHome(cmd.AddHomePath, cmd.AddHomePackage);
                 break;
 
+            case CommandType.Backup:
+                if (cmd.Packages.Length > 0)
+                {
+                    string[]? backedUp = Backup.BackupPackage(cmd.Packages[0], Env.BackupDir);
+                    if (backedUp is null) return;
+                    Printer.Success($"Backup completado: {backedUp.Length} archivo(s)");
+                }
+                else if (cmd.AddHomePath is not null)
+                {
+                    bool ok = Backup.BackupHomeFile(cmd.AddHomePath, Env.BackupDir);
+                    if (ok) Printer.Success($"Backup completado: {cmd.AddHomePath}");
+                }
+                else if (cmd.SystemPaths.Length > 0)
+                {
+                    bool ok = Backup.BackupSystemFile(cmd.SystemPaths[0], Env.BackupDir);
+                    if (ok) Printer.Success($"Backup completado: {cmd.SystemPaths[0]}");
+                }
+                break;
+
             case CommandType.Delete:
                 if (cmd.DeleteSystem && cmd.SystemPaths.Length > 0)
                     DeleteOp.DeleteSystem(cmd.SystemPaths, cmd.Action!);

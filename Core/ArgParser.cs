@@ -115,6 +115,47 @@ internal static class ArgParser
                 break;
 
             // ══════════════════════════════════════════════════════════════
+            // BACKUP
+            // ══════════════════════════════════════════════════════════════
+            case "backup":
+            case "bkp":
+                cmd.Type = CommandType.Backup;
+                while (i < args.Length)
+                {
+                    switch (args[i])
+                    {
+                        case "--package":
+                        case "-p":
+                            i++;
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta el nombre del paquete después de --package.", mainCmd);
+                            cmd.Packages = [args[i]];
+                            break;
+                        case "--home":
+                        case "-H":
+                            i++;
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta la ruta del archivo después de --home.", mainCmd);
+                            cmd.AddHomePath = args[i];
+                            break;
+                        case "--system":
+                        case "-s":
+                            i++;
+                            if (i >= args.Length || args[i].StartsWith('-'))
+                                return Error("Falta la ruta del archivo después de --system.", mainCmd);
+                            cmd.SystemPaths = [args[i]];
+                            break;
+                        default:
+                            return Error($"Opción desconocida para backup: '{args[i]}'.", mainCmd);
+                    }
+                    i++;
+                }
+
+                if (cmd.Packages.Length == 0 && cmd.AddHomePath is null && cmd.SystemPaths.Length == 0)
+                    return Error("backup requiere --package, --home o --system.", mainCmd);
+                break;
+
+            // ══════════════════════════════════════════════════════════════
             // DELETE
             // ══════════════════════════════════════════════════════════════
             case "delete":
@@ -400,6 +441,15 @@ Uso: dotfiles-manager <comando> [opciones]
     -p, --package <paquete>       Paquete stow destino (solo con --home)
 
 ═══════════════════════════════════════════════════════════════
+  BACKUP
+═══════════════════════════════════════════════════════════════
+
+  Comando: backup, bkp
+    -p, --package <paquete>       Backup de archivos de un paquete stow
+    -H, --home <ruta>             Backup de un archivo del home
+    -s, --system <ruta>           Backup de un archivo de sistema
+    
+═══════════════════════════════════════════════════════════════
   ELIMINAR
 ═══════════════════════════════════════════════════════════════
 
@@ -448,27 +498,29 @@ Uso: dotfiles-manager <comando> [opciones]
 
   Comando: -h, --help, help
       Mostrar esta ayuda
-
-═══════════════════════════════════════════════════════════════
-  EJEMPLOS
-═══════════════════════════════════════════════════════════════
-
-  dm a -H nvim bash
-  dm apply --system /etc/hosts /etc/mkinitcpio.conf
-  dm add -H ~/.config/hypr -p hyprland
-  dm add -s /etc/grub/grub.cfg
-  dm d -H nvim -A restore
-  dm delete -s /etc/hosts -A all
-  dm p create servidor -P nginx docker -D bash
-  dm profile en viejo nuevo
-  dm p apply gaming
-  dm p apply gaming -f 2
-  dm p export gaming
-  dm status
-  dm S mi-script
-  dm sd /home/user/mis-dotfiles
 ");
     }
+
+    /*
+    ═══════════════════════════════════════════════════════════════
+      EJEMPLOS
+    ═══════════════════════════════════════════════════════════════
+
+      dm a -H nvim bash
+      dm apply --system /etc/hosts /etc/mkinitcpio.conf
+      dm add -H ~/.config/hypr -p hyprland
+      dm add -s /etc/grub/grub.cfg
+      dm d -H nvim -A restore
+      dm delete -s /etc/hosts -A all
+      dm p create servidor -P nginx docker -D bash
+      dm profile en viejo nuevo
+      dm p apply gaming
+      dm p apply gaming -f 2
+      dm p export gaming
+      dm status
+      dm S mi-script
+      dm sd /home/user/mis-dotfiles
+      */
 
     private static void ShowHelpSection(string command)
     {
@@ -497,6 +549,20 @@ Uso: dotfiles-manager <comando> [opciones]
     -H, --home <ruta>             Agregar archivo/carpeta del home
     -s, --system <ruta>           Agregar archivo/carpeta al sistema
     -p, --package <paquete>       Paquete stow destino (solo con --home)
+");
+                break;
+
+            case "backup":
+            case "bkp":
+                Console.WriteLine(@"
+═══════════════════════════════════════════════════════════════
+  BACKUP
+═══════════════════════════════════════════════════════════════
+
+  Comando: backup, bkp
+    -p, --package <paquete>       Backup de archivos de un paquete stow
+    -H, --home <ruta>             Backup de un archivo del home
+    -s, --system <ruta>           Backup de un archivo de sistema
 ");
                 break;
 
@@ -606,7 +672,7 @@ internal class CliCommand
 
 internal enum CommandType
 {
-    None, Menu, Help, Apply, Add, Delete, Status, Script, Profile, SetDir, Error
+    None, Menu, Help, Apply, Add, Backup, Delete, Status, Script, Profile, SetDir, Error
 }
 
 internal enum ProfileAction
