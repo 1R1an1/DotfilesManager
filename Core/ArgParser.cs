@@ -59,7 +59,6 @@ internal static class ArgParser
                         default:
                             return Error($"Opción desconocida para apply: '{args[i]}'.", mainCmd);
                     }
-                    i++;
                 }
 
                 if (cmd.Packages.Length == 0 && cmd.SystemPaths.Length == 0)
@@ -217,7 +216,6 @@ internal static class ArgParser
                                 default:
                                     return Error($"Opción desconocida para profile create: '{args[i]}'.", mainCmd);
                             }
-                            i++;
                         }
                         break;
 
