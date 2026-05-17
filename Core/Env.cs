@@ -22,7 +22,7 @@ internal static class Env
 
     // Cada llamada genera un timestamp nuevo, así cada operación tiene su propio backup
     public static string BackupDir =>
-        Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+        Path.Combine(HomeDir, ".dotfiles-backup", DateTime.Now.ToString("yyyyMMdd_HHmmssff"));
 
     // Lee la config guardada. Si no existe o la ruta no existe, pide la ruta al usuario.
     public static void LoadOrInit()

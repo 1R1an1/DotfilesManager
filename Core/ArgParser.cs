@@ -126,33 +126,70 @@ internal static class ArgParser
                     {
                         case "--package":
                         case "-p":
+                            cmd.BackupTarget = BackupTarget.Packages;
                             i++;
-                            if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta el nombre del paquete después de --package.", mainCmd);
-                            cmd.Packages = [args[i]];
+                            if (i >= args.Length)
+                                return Error("Falta --all o al menos un paquete después de --package.", mainCmd);
+
+                            if (args[i] == "--all" || args[i] == "-a")
+                            {
+                                cmd.BackupAll = true;
+                            }
+                            else
+                            {
+                                var pkgs = new List<string>();
+                                while (i < args.Length && !args[i].StartsWith('-'))
+                                {
+                                    pkgs.Add(args[i].Trim('\'', '"')); // quitar comillas
+                                    i++;
+                                }
+                                if (pkgs.Count == 0)
+                                    return Error("Se esperaba al menos un nombre de paquete.", mainCmd);
+                                cmd.Packages = pkgs.ToArray();
+                                continue; // ya incrementamos i dentro del while
+                            }
                             break;
-                        case "--home":
-                        case "-H":
-                            i++;
-                            if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta la ruta del archivo después de --home.", mainCmd);
-                            cmd.AddHomePath = args[i];
-                            break;
+
                         case "--system":
                         case "-s":
+                            cmd.BackupTarget = BackupTarget.System;
                             i++;
-                            if (i >= args.Length || args[i].StartsWith('-'))
-                                return Error("Falta la ruta del archivo después de --system.", mainCmd);
-                            cmd.SystemPaths = [args[i]];
+                            if (i >= args.Length)
+                                return Error("Falta --all o al menos una ruta después de --system.", mainCmd);
+
+                            if (args[i] == "--all" || args[i] == "-a")
+                            {
+                                cmd.BackupAll = true;
+                            }
+                            else
+                            {
+                                var paths = new List<string>();
+                                while (i < args.Length && !args[i].StartsWith('-'))
+                                {
+                                    paths.Add(args[i].Trim('\'', '"')); // quitar comillas
+                                    i++;
+                                }
+                                if (paths.Count == 0)
+                                    return Error("Se esperaba al menos una ruta de sistema.", mainCmd);
+                                cmd.SystemPaths = paths.ToArray();
+                                continue;
+                            }
                             break;
+
                         default:
                             return Error($"Opción desconocida para backup: '{args[i]}'.", mainCmd);
                     }
                     i++;
                 }
 
-                if (cmd.Packages.Length == 0 && cmd.AddHomePath is null && cmd.SystemPaths.Length == 0)
-                    return Error("backup requiere --package, --home o --system.", mainCmd);
+                if (cmd.BackupTarget == BackupTarget.None)
+                    return Error("backup requiere --package o --system.", mainCmd);
+
+                if (!cmd.BackupAll && cmd.BackupTarget == BackupTarget.Packages && cmd.Packages.Length == 0)
+                    return Error("backup --package requiere --all o al menos un nombre de paquete.", mainCmd);
+
+                if (!cmd.BackupAll && cmd.BackupTarget == BackupTarget.System && cmd.SystemPaths.Length == 0)
+                    return Error("backup --system requiere --all o al menos una ruta.", mainCmd);
                 break;
 
             // ══════════════════════════════════════════════════════════════
@@ -422,79 +459,21 @@ internal static class ArgParser
 Dotfiles Manager — CLI
 
 Uso: dotfiles-manager <comando> [opciones]
+");
 
+        ShowHelpSection("apply");
+        ShowHelpSection("add");
+        ShowHelpSection("backup");
+        ShowHelpSection("delete");
+        ShowHelpSection("profile");
+        ShowHelpSection("status");
+        ShowHelpSection("script");
+        ShowHelpSection("set-dir");
+
+        Console.WriteLine(@"
 ═══════════════════════════════════════════════════════════════
-  APLICAR
+  AYUDA
 ═══════════════════════════════════════════════════════════════
-
-  Comando: apply, a
-    -H, --home <paquetes...>      Aplicar paquetes stow del home
-    -s, --system <rutas...>       Aplicar symlinks de sistema
-
-═══════════════════════════════════════════════════════════════
-  AGREGAR
-═══════════════════════════════════════════════════════════════
-
-  Comando: add
-    -H, --home <ruta>             Agregar archivo/carpeta del home
-    -s, --system <ruta>           Agregar archivo/carpeta al sistema
-    -p, --package <paquete>       Paquete stow destino (solo con --home)
-
-═══════════════════════════════════════════════════════════════
-  BACKUP
-═══════════════════════════════════════════════════════════════
-
-  Comando: backup, bkp
-    -p, --package <paquete>       Backup de archivos de un paquete stow
-    -H, --home <ruta>             Backup de un archivo del home
-    -s, --system <ruta>           Backup de un archivo de sistema
-    
-═══════════════════════════════════════════════════════════════
-  ELIMINAR
-═══════════════════════════════════════════════════════════════
-
-  Comando: delete, d, del
-    -H, --home <paquete>          Eliminar symlinks de un paquete stow
-    -s, --system <rutas...>       Eliminar symlinks de sistema
-    -A, --action <accion>         Acción a realizar: symlinks | restore | all
-
-═══════════════════════════════════════════════════════════════
-  PERFILES
-═══════════════════════════════════════════════════════════════
-
-  Comando: profile, p
-
-    Subcomando: create, c <nombre>
-      -P, --packages <paquetes...>   Paquetes a incluir
-      -D, --dotfiles <dotfiles...>   Dotfiles a incluir
-
-    Subcomando: edit-name, en <viejo> <nuevo>
-      Cambiar nombre de un perfil
-
-    Subcomando: edit-packages, ep <nombre>
-      -P, --packages <paquetes...>   Nuevos paquetes del perfil
-
-    Subcomando: edit-dotfiles, ed <nombre>
-      -D, --dotfiles <dotfiles...>   Nuevos dotfiles del perfil
-
-    Subcomando: apply, a <nombre>
-      -f, --from-step <número>       Aplicar desde un paso concreto (opcional)
-
-    Subcomando: export, x <nombre>
-      Exportar un perfil a un script .sh
-
-═══════════════════════════════════════════════════════════════
-  OTROS
-═══════════════════════════════════════════════════════════════
-
-  Comando: status, st
-      Ver estado de symlinks
-
-  Comando: script, S, run <nombre>
-      Ejecutar un script del repo
-
-  Comando: set-dir, sd <ruta>
-      Cambiar el directorio del repo de dotfiles
 
   Comando: -h, --help, help
       Mostrar esta ayuda
@@ -560,9 +539,10 @@ Uso: dotfiles-manager <comando> [opciones]
 ═══════════════════════════════════════════════════════════════
 
   Comando: backup, bkp
-    -p, --package <paquete>       Backup de archivos de un paquete stow
-    -H, --home <ruta>             Backup de un archivo del home
-    -s, --system <ruta>           Backup de un archivo de sistema
+    -p, --package <paquetes...>   Backup de paquetes del repo
+    -p, --package --all, -a       Backup de todos los paquetes
+    -s, --system <rutas...>       Backup de carpetas y archivos de system/
+    -s, --system --all, -a        Backup de todo system/
 ");
                 break;
 
@@ -656,6 +636,8 @@ internal class CliCommand
     public CommandType Type { get; set; } = CommandType.None;
     public ProfileAction ProfileAction { get; set; } = ProfileAction.None;
     public int StartStep { get; set; } = 0; // 0 = desde el principio, base 1 en CLI
+    public BackupTarget BackupTarget { get; set; } = BackupTarget.None;
+    public bool BackupAll { get; set; } = false;
     public string? Profile { get; set; }
     public string? NewName { get; set; }
     public string[] Packages { get; set; } = [];
@@ -669,6 +651,8 @@ internal class CliCommand
     public string[] Dotfiles { get; set; } = [];
     public string? DotfilesDir { get; set; }
 }
+
+internal enum BackupTarget { None, Packages, System }
 
 internal enum CommandType
 {

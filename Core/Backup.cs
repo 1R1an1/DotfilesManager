@@ -146,6 +146,142 @@ internal static class Backup
         return ok;
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // BACKUPS DEL REPO (CLI)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Backup de uno o varios paquetes del repo.
+    /// </summary>
+    public static bool BackupRepoPackages(string[] packages, string backupDir, Summary? summary = null)
+    {
+        bool allOk = true;
+        foreach (string pkg in packages)
+        {
+            string srcDir = Path.Combine(Env.DotfilesDir, pkg);
+            if (!Directory.Exists(srcDir))
+            {
+                string msg = $"El paquete '{pkg}' no existe en el repo.";
+                if (summary != null) summary.TrackErr(msg);
+                else Printer.Error(msg);
+                allOk = false;
+                continue;
+            }
+
+            string destDir = Path.Combine(backupDir, pkg);
+            Directory.CreateDirectory(Path.GetDirectoryName(destDir)!);
+
+            var (ok, _, stderr) = Shell.Copy(srcDir, destDir, recursive: true);
+
+            if (ok)
+                Printer.Info($"Backup del paquete '{pkg}' → {destDir}");
+            else
+            {
+                string msg = $"Error en backup del paquete '{pkg}': {stderr}";
+                if (summary != null) summary.TrackErr(msg);
+                else Printer.Error(msg);
+                allOk = false;
+            }
+        }
+        return allOk;
+    }
+
+    /// <summary>
+    /// Backup de todos los paquetes del repo.
+    /// </summary>
+    public static bool BackupAllRepoPackages(string backupDir, Summary? summary = null)
+    {
+        string[] packages = Env.GetPackages();
+        if (packages.Length == 0)
+        {
+            string msg = "No hay paquetes en el repo.";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Warn(msg);
+            return false;
+        }
+
+        return BackupRepoPackages(packages, backupDir, summary);
+    }
+
+    /// <summary>
+    /// Backup de una o varias rutas relativas a system/.
+    /// </summary>
+    public static bool BackupRepoSystemPaths(string[] paths, string backupDir, Summary? summary = null)
+    {
+        bool allOk = true;
+        foreach (string path in paths)
+        {
+            string fullPath = Path.Combine(Env.SystemDir, path);
+            string dest = Path.Combine(backupDir, "system", path);
+
+            if (Directory.Exists(fullPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                var (ok, _, stderr) = Shell.Copy(fullPath, dest, recursive: true);
+                if (ok)
+                    Printer.Info($"Backup de system/{path} → {dest}");
+                else
+                {
+                    string msg = $"Error en backup de system/{path}: {stderr}";
+                    if (summary != null) summary.TrackErr(msg);
+                    else Printer.Error(msg);
+                    allOk = false;
+                }
+            }
+            else if (File.Exists(fullPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                var (ok, _, stderr) = Shell.Copy(fullPath, dest);
+                if (ok)
+                    Printer.Info($"Backup de system/{path} → {dest}");
+                else
+                {
+                    string msg = $"Error en backup de system/{path}: {stderr}";
+                    if (summary != null) summary.TrackErr(msg);
+                    else Printer.Error(msg);
+                    allOk = false;
+                }
+            }
+            else
+            {
+                string msg = $"No existe system/{path}";
+                if (summary != null) summary.TrackErr(msg);
+                else Printer.Error(msg);
+                allOk = false;
+            }
+        }
+        return allOk;
+    }
+
+    /// <summary>
+    /// Backup de toda la carpeta system/.
+    /// </summary>
+    public static bool BackupAllRepoSystem(string backupDir, Summary? summary = null)
+    {
+        string srcDir = Env.SystemDir;
+        if (!Directory.Exists(srcDir))
+        {
+            string msg = "La carpeta system/ no existe en el repo.";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
+        string destDir = Path.Combine(backupDir, "system");
+        Directory.CreateDirectory(Path.GetDirectoryName(destDir)!);
+
+        var (ok, _, stderr) = Shell.Copy(srcDir, destDir, recursive: true);
+        if (ok)
+            Printer.Info($"Backup de system/ → {destDir}");
+        else
+        {
+            string msg = $"Error en backup de system/: {stderr}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+        }
+        return ok;
+    }
+
     // FileAttributes.ReparsePoint es el flag que usa Windows/Linux en .NET
     // para indicar que una entrada del filesystem es un symlink.
     public static bool IsSymlink(string path) =>

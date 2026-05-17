@@ -97,21 +97,19 @@ internal static class Program
                 break;
 
             case CommandType.Backup:
-                if (cmd.Packages.Length > 0)
+                if (cmd.BackupTarget == BackupTarget.Packages)
                 {
-                    string[]? backedUp = Backup.BackupHomePackage(cmd.Packages[0], Env.BackupDir + "_manualBackupAction");
-                    if (backedUp is null) return;
-                    Printer.Success($"Backup completado: {backedUp.Length} archivo(s)");
+                    if (cmd.BackupAll)
+                        Backup.BackupAllRepoPackages(Env.BackupDir + "_manualPackagesAllAction");
+                    else
+                        Backup.BackupRepoPackages(cmd.Packages, Env.BackupDir + "_manualPackagesAction");
                 }
-                else if (cmd.AddHomePath is not null)
+                else if (cmd.BackupTarget == BackupTarget.System)
                 {
-                    bool ok = Backup.BackupHomePath(cmd.AddHomePath, Env.BackupDir + "_manualBackupAction");
-                    if (ok) Printer.Success($"Backup completado: {cmd.AddHomePath}");
-                }
-                else if (cmd.SystemPaths.Length > 0)
-                {
-                    bool ok = Backup.BackupSystemPath(cmd.SystemPaths[0], Env.BackupDir + "_manualBackupAction");
-                    if (ok) Printer.Success($"Backup completado: {cmd.SystemPaths[0]}");
+                    if (cmd.BackupAll)
+                        Backup.BackupAllRepoSystem(Env.BackupDir + "_manualSystemAllAction");
+                    else
+                        Backup.BackupRepoSystemPaths(cmd.SystemPaths, Env.BackupDir + "_manualSystemAction");
                 }
                 break;
 
