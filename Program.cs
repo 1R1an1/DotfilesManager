@@ -75,7 +75,7 @@ internal static class Program
         switch (cmd.Type)
         {
             case CommandType.Error:
-                // El error ya se mostró en ArgParser
+                Environment.ExitCode = 1;
                 break;
 
             case CommandType.Help:
