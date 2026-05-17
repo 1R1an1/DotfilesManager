@@ -10,7 +10,13 @@ internal static class Backup
     public static string[]? BackupPackage(string package, string backupDir, Summary? summary = null)
     {
         string srcDir = Path.Combine(Env.DotfilesDir, package);
-        if (!Directory.Exists(srcDir)) return [];
+        if (!Directory.Exists(srcDir))
+        {
+            string msg = $"El paquete '{package}' no existe en el repo.";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return null;
+        }
 
         // Paso 1: Elegir qué archivos necesitan backup
         List<string> relatives = new();
@@ -56,6 +62,23 @@ internal static class Backup
     // (si se pasó uno) o imprime un warning.
     public static bool BackupHomeFile(string absolutePath, string backupDir, Summary? summary = null)
     {
+        // Validar que la ruta esté dentro del home
+        if (!absolutePath.StartsWith(Env.HomeDir))
+        {
+            string msg = $"La ruta debe estar dentro del home ({Env.HomeDir}): {absolutePath}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
+        if (!File.Exists(absolutePath) && !Directory.Exists(absolutePath))
+        {
+            string msg = $"No existe: {absolutePath}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
         string rel = Path.GetRelativePath(Env.HomeDir, absolutePath);
         string dest = Path.Combine(backupDir, "home", rel);
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
@@ -78,9 +101,34 @@ internal static class Backup
     }
 
     // Hace backup de un archivo o carpeta de sistema usando sudo.
-    // Usa SudoCopyDir para carpetas y SudoCopy para archivos.
     public static bool BackupSystemFile(string absolutePath, string backupDir, Summary? summary = null)
     {
+        // Validar que sea ruta absoluta
+        if (!absolutePath.StartsWith('/'))
+        {
+            string msg = $"La ruta debe ser absoluta: {absolutePath}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
+        // Validar que no esté dentro del home
+        if (absolutePath.StartsWith(Env.HomeDir))
+        {
+            string msg = $"La ruta no puede estar dentro del home, usá BackupHomeFile: {absolutePath}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
+        if (!File.Exists(absolutePath) && !Directory.Exists(absolutePath))
+        {
+            string msg = $"No existe: {absolutePath}";
+            if (summary != null) summary.TrackErr(msg);
+            else Printer.Error(msg);
+            return false;
+        }
+
         string dest = Path.Combine(backupDir, "system", absolutePath.TrimStart('/'));
 
         bool ok = Directory.Exists(absolutePath)
