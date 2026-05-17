@@ -118,7 +118,7 @@ internal static class AddOp
         string rel = Path.GetRelativePath(Env.HomeDir, path);
         string destInRepo = Path.Combine(Env.DotfilesDir, package, rel);
 
-        if (!Backup.BackupHomeFile(path, Env.BackupDir + "_addHomeAction", summary))
+        if (!Backup.BackupHomePath(path, Env.BackupDir + "_addHomeAction", summary))
             return;
 
         if (!Shell.Move(path, destInRepo).Ok)
@@ -156,7 +156,7 @@ internal static class AddOp
 
         string destInRepo = Path.Combine(Env.SystemDir, path.TrimStart('/'));
 
-        if (!Backup.BackupSystemFile(path, Env.BackupDir + "_AddSystemAction", summary))
+        if (!Backup.BackupSystemPath(path, Env.BackupDir + "_AddSystemAction", summary))
             return;
 
         if (!Shell.Move(path, destInRepo, asSudo: true).Ok)

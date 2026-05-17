@@ -183,7 +183,7 @@ internal static class DeleteOp
                     break;
 
                 case "restore":
-                    Backup.BackupSystemFile(systemPath, Env.BackupDir + "_deleteAction", summary);
+                    Backup.BackupSystemPath(systemPath, Env.BackupDir + "_deleteAction", summary);
                     Shell.Remove(systemPath, true);
                     bool copied = Directory.Exists(entry)
                         ? Shell.Copy(entry, systemPath, asSudo: true, recursive: true).Ok

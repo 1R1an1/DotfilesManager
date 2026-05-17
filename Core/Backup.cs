@@ -7,7 +7,7 @@ internal static class Backup
     // Hace backup de los archivos reales (no symlinks) que stow va a reemplazar.
     // Ahora usa un único comando cp --parents para copiar todo de una vez,
     // en lugar de lanzar un proceso por cada archivo.
-    public static string[]? BackupPackage(string package, string backupDir, Summary? summary = null)
+    public static string[]? BackupHomePackage(string package, string backupDir, Summary? summary = null)
     {
         string srcDir = Path.Combine(Env.DotfilesDir, package);
         if (!Directory.Exists(srcDir))
@@ -60,7 +60,7 @@ internal static class Backup
 
     // Hace backup de un archivo o carpeta en home. Si falla, registra el error en summary
     // (si se pasó uno) o imprime un warning.
-    public static bool BackupHomeFile(string absolutePath, string backupDir, Summary? summary = null)
+    public static bool BackupHomePath(string absolutePath, string backupDir, Summary? summary = null)
     {
         // Validar que la ruta esté dentro del home
         if (!absolutePath.StartsWith(Env.HomeDir))
@@ -101,7 +101,7 @@ internal static class Backup
     }
 
     // Hace backup de un archivo o carpeta de sistema usando sudo.
-    public static bool BackupSystemFile(string absolutePath, string backupDir, Summary? summary = null)
+    public static bool BackupSystemPath(string absolutePath, string backupDir, Summary? summary = null)
     {
         // Validar que sea ruta absoluta
         if (!absolutePath.StartsWith('/'))

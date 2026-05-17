@@ -119,7 +119,7 @@ internal static class ApplyOp
         foreach (string pkg in packages)
         {
             // Backup
-            var backups = Backup.BackupPackage(pkg, backupDir, summary);
+            var backups = Backup.BackupHomePackage(pkg, backupDir, summary);
             if (backups is null) return false;
 
             foreach (var i in backups)
@@ -165,7 +165,7 @@ internal static class ApplyOp
                 foreach (string file in Directory.GetFiles(entryInRepo, "*", SearchOption.AllDirectories))
                 {
                     string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                    Backup.BackupSystemFile(dest, backupDir, summary);
+                    Backup.BackupSystemPath(dest, backupDir, summary);
                 }
 
                 // Symlinks individuales
@@ -178,7 +178,7 @@ internal static class ApplyOp
             }
             else if (File.Exists(entryInRepo))
             {
-                Backup.BackupSystemFile(systemPath, backupDir, summary);
+                Backup.BackupSystemPath(systemPath, backupDir, summary);
                 if (Shell.Symlink(entryInRepo, systemPath, true).Ok)
                 {
                     Printer.Success($"symlink sistema: {systemPath}");
