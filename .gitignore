@@ -5,6 +5,7 @@ obj/
 # User-specific
 *.user
 *.suo
+*.zip
 .vs/
 
 # Backup generados por la app
