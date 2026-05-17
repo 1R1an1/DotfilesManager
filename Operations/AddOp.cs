@@ -65,7 +65,7 @@ internal static class AddOp
         }
         else
         {
-            package = packages[pkgIdx];
+            package = packages[pkgIdx - 1];
         }
 
         Console.WriteLine();
