@@ -42,8 +42,9 @@ internal static class ExecuteOp
 
     /// <summary>
     /// Ejecuta un script por nombre sin interfaz interactiva.
+    /// Los argumentos opcionales se pasan al script.
     /// </summary>
-    public static bool RunScript(string name)
+    public static bool RunScript(string name, string[]? scriptArgs = null)
     {
         string scriptPath = Path.Combine(Env.ScriptsDir, name);
 
@@ -53,7 +54,11 @@ internal static class ExecuteOp
             return false;
         }
 
-        var (code, _, stderr, _) = Shell.Bash(scriptPath, visible: true);
+        string extraArgs = scriptArgs is not null && scriptArgs.Length > 0
+            ? " " + string.Join(" ", scriptArgs)
+            : "";
+
+        var (code, _, stderr, _) = Shell.Bash($"\"{scriptPath}\"" + extraArgs, visible: true);
         if (code != 0)
         {
             Summary.TrackErr($"Script falló ({code}): {stderr}");

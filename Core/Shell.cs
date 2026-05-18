@@ -273,9 +273,9 @@ internal static class Shell
     {
         string? sudoUser = Environment.GetEnvironmentVariable("SUDO_USER");
         if (!string.IsNullOrEmpty(sudoUser))
-            return Run("runuser", $"-u {sudoUser} -- /bin/bash \"{scriptPath}\"", visible: visible, timeout: timeout);
+            return Run("runuser", $"-u {sudoUser} -- /bin/bash {scriptPath}", visible: visible, timeout: timeout);
 
-        return Run("/bin/bash", $"\"{scriptPath}\"", visible: visible, timeout: timeout);
+        return Run("/bin/bash", scriptPath, visible: visible, timeout: timeout);
     }
 
     public static bool YayInstalled()

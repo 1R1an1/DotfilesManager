@@ -125,7 +125,7 @@ internal static class Program
                 break;
 
             case CommandType.Script:
-                ExecuteOp.RunScript(cmd.ScriptName!);
+                ExecuteOp.RunScript(cmd.ScriptName!, cmd.ScriptArgs);
                 break;
 
             case CommandType.Profile:
