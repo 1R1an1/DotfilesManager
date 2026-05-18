@@ -5,6 +5,23 @@ namespace DotfilesManager.Core;
 
 internal static class Env
 {
+    // Valor que indica si se ejecuto en modo cli o tui
+    private static int _cliMode = -1;
+    private static bool _set = false;
+
+    public static int CliMode
+    {
+        get => _cliMode;
+        set
+        {
+            if (_set)
+                throw new InvalidOperationException("CliMode solo puede asignarse una vez.");
+
+            _cliMode = value;
+            _set = true;
+        }
+    }
+
     // HomeDir se inicializa primero porque ConfigFile depende de él.
     // El orden de declaración de campos estáticos importa en C#.
     public static readonly string HomeDir = GetRealHome();

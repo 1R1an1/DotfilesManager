@@ -34,10 +34,12 @@ internal static class Program
         if (args.Length == 0)
         {
             _summary = new Summary();
+            Env.CliMode = 0;
             RunInteractive();
         }
         else
         {
+            Env.CliMode = 1;
             RunCli(ArgParser.Parse(args));
         }
     }
