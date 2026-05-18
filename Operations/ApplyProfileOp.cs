@@ -96,7 +96,7 @@ internal static class ApplyProfileOp
 
             bool ok = paso.Tipo switch
             {
-                StepType.Script => ExecuteScriptStep(paso, summary),
+                StepType.Script => ExecuteOp.RunScript(paso.Valor, summary),
                 StepType.Dotfile => ApplyOp.ApplyHome(paso.ObtenerItems(), summary),
                 StepType.Package => ExecutePackageStep(paso, summary),
                 _ => false
@@ -110,29 +110,6 @@ internal static class ApplyProfileOp
         }
 
         Messenger.Success($"Perfil '{name}' aplicado correctamente.", summary);
-    }
-
-    // ── Paso: Script ────────────────────────────────────────────────────
-    private static bool ExecuteScriptStep(ProfileStep paso, Summary? summary)
-    {
-        string scriptName = paso.Valor.Trim();
-        string scriptPath = Path.Combine(Env.ScriptsDir, scriptName);
-
-        if (!File.Exists(scriptPath))
-        {
-            Messenger.Error($"Script no encontrado: {scriptPath}", summary);
-            return false;
-        }
-
-        var (code, _, stderr, _) = Shell.Bash(scriptPath, visible: true);
-        if (code != 0)
-        {
-            Messenger.Error($"Script '{scriptName}' falló: {stderr}", summary);
-            return false;
-        }
-
-        Messenger.Success($"Script ejecutado: {scriptName}", summary);
-        return true;
     }
 
     // ── Paso: Package (yay) ─────────────────────────────────────────────

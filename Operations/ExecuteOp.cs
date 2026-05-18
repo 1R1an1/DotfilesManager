@@ -34,10 +34,7 @@ internal static class ExecuteOp
         Printer.Info($"Ejecutando: {scriptNames[idx]}");
         Console.WriteLine();
 
-        if (Shell.Bash(scripts[idx]).ExitCode == 0)
-            summary.TrackOk("Script ejecutado correctamente.");
-        else
-            summary.TrackErr("El script terminó con error.");
+        RunScript(scriptNames[idx]!, summary);
 
         summary.Print();
         Printer.PressEnterToContinue();
@@ -46,21 +43,25 @@ internal static class ExecuteOp
     /// <summary>
     /// Ejecuta un script por nombre sin interfaz interactiva.
     /// </summary>
-    public static void RunScript(string name)
+    public static bool RunScript(string name, Summary? summary = null)
     {
         string scriptPath = Path.Combine(Env.ScriptsDir, name);
 
         if (!File.Exists(scriptPath))
         {
-            Printer.Error($"Script no encontrado: {scriptPath}");
-            return;
+            Messenger.Error($"Script no encontrado: {scriptPath}", summary);
+            return false;
         }
 
-        var (code, stdout, stderr, _) = Shell.Bash(scriptPath, visible: true);
-        if (code == 0)
-            Printer.Success($"Script ejecutado: {name}");
-        else
-            Printer.Error($"Script falló ({code}): {stderr}");
+        var (code, _, stderr, _) = Shell.Bash(scriptPath, visible: true);
+        if (code != 0)
+        {
+            Messenger.Error($"Script falló ({code}): {stderr}", summary);
+            return false;
+        }
+
+        Messenger.Success($"Script ejecutado: {name}", summary);
+        return true;
     }
 
     public static string[] GetScripts() =>
