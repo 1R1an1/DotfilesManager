@@ -127,19 +127,13 @@ internal static class ApplyOp
 
             // Stow
             if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
-            {
-                Printer.Success($"stow: {pkg}");
-                summary?.TrackOk($"stow: {pkg}");
-            }
+                Messenger.Success($"stow: {pkg}", summary);
+
             else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
-            {
-                Printer.Success($"stow (adopt): {pkg}");
-                summary?.TrackOk($"stow (adopt): {pkg}");
-            }
+                Messenger.Success($"stow (adopt): {pkg}", summary);
             else
             {
-                Printer.Error($"stow falló: {pkg}");
-                summary?.TrackErr($"stow falló: {pkg}");
+                Messenger.Error($"stow falló: {pkg}", summary);
                 return false;
             }
         }
@@ -165,36 +159,30 @@ internal static class ApplyOp
                 foreach (string file in Directory.GetFiles(entryInRepo, "*", SearchOption.AllDirectories))
                 {
                     string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                    Backup.BackupSystemPath(dest, backupDir, summary);
+                    if (!Backup.BackupSystemPath(dest, backupDir, summary))
+                        return;
                 }
 
                 // Symlinks individuales
                 var created = Shell.SymlinkDirectoryContents(entryInRepo, systemPath, asSudo: true);
                 foreach (string dest in created)
-                {
-                    Printer.Success($"symlink sistema: {dest}");
-                    summary?.TrackOk($"symlink sistema: {dest}");
-                }
+                    Messenger.Success($"symlink sistema: {dest}", summary);
+
             }
             else if (File.Exists(entryInRepo))
             {
-                Backup.BackupSystemPath(systemPath, backupDir, summary);
+                if (!Backup.BackupSystemPath(systemPath, backupDir, summary))
+                    return;
+
                 if (Shell.Symlink(entryInRepo, systemPath, true).Ok)
-                {
-                    Printer.Success($"symlink sistema: {systemPath}");
-                    summary?.TrackOk($"symlink sistema: {systemPath}");
-                }
+                    Messenger.Success($"symlink sistema: {systemPath}", summary);
                 else
-                {
-                    Printer.Error($"symlink sistema falló: {systemPath}");
-                    summary?.TrackErr($"symlink sistema falló: {systemPath}");
-                }
+                    Messenger.Error($"symlink sistema falló: {systemPath}", summary);
+
             }
             else
-            {
-                Printer.Error($"No se encontró '{systemPath}' en el repo.");
-                summary?.TrackErr($"No se encontró '{systemPath}' en el repo.");
-            }
+                Messenger.Error($"No se encontró '{systemPath}' en el repo.", summary);
+
         }
     }
 }

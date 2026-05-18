@@ -24,11 +24,10 @@ internal static class ExportProfileOp
         if (idx == -1) return;
 
         var perfil = profiles[idx];
-        string scriptPath = Path.Combine(Env.HomeDir, $"{perfil.Nombre}.sh");
+        string scriptPath = Path.Combine(Env.ScriptsDir, $"{perfil.Nombre}.sh");
         string contenido = GenerarScript(perfil);
         File.WriteAllText(scriptPath, contenido);
-        Printer.Success($"Script exportado a: {scriptPath}");
-        summary.TrackOk($"Perfil '{perfil.Nombre}' exportado a {scriptPath}");
+        Messenger.Success($"Perfil '{perfil.Nombre}' exportado al script {scriptPath}");
         summary.Print();
         Printer.PressEnterToContinue();
     }

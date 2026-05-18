@@ -45,7 +45,8 @@ internal static class DeleteOp
 
         string action = actionIdx switch { 0 => "symlinks", 1 => "restore", 2 => "all", _ => "symlinks" };
 
-        if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}' en '{package}'?")) return;
+        if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}' en '{package}'?"))
+            return;
 
         DeleteHome(package, action, summary);
     }
@@ -98,15 +99,9 @@ internal static class DeleteOp
         {
             case "symlinks":
                 if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
-                {
-                    Printer.Success($"Symlinks de '{package}' eliminados.");
-                    summary?.TrackOk($"Symlinks de '{package}' eliminados.");
-                }
+                    Messenger.Success($"Symlinks de '{package}' eliminados.", summary);
                 else
-                {
-                    Printer.Error($"No se pudieron eliminar los symlinks de '{package}'.");
-                    summary?.TrackErr($"No se pudieron eliminar los symlinks de '{package}'.");
-                }
+                    Messenger.Error($"No se pudieron eliminar los symlinks de '{package}'.", summary);
                 break;
 
             case "restore":
@@ -122,17 +117,11 @@ internal static class DeleteOp
                 if (Shell.Copy(pkgDir, Env.HomeDir, recursive: true, contents: true).Ok)
                 {
                     foreach (string src in files)
-                    {
-                        string rel = Path.GetRelativePath(pkgDir, src);
-                        Printer.Success($"Restaurado: ~/{rel}");
-                        summary?.TrackOk($"Restaurado: ~/{rel}");
-                    }
+                        Messenger.Success($"Restaurado: ~/{Path.GetRelativePath(pkgDir, src)}", summary);
+
                 }
                 else
-                {
-                    Printer.Error($"Falló la copia masiva del paquete '{package}'.");
-                    summary?.TrackErr($"Falló la copia masiva del paquete '{package}'.");
-                }
+                    Messenger.Error($"Falló la copia masiva del paquete '{package}'.", summary);
                 break;
 
             case "all":
@@ -140,19 +129,13 @@ internal static class DeleteOp
                 try
                 {
                     Directory.Delete(pkgDir, recursive: true);
-                    Printer.Success($"Carpeta del repo eliminada.");
-                    summary?.TrackOk($"Carpeta del repo eliminada.");
+                    Messenger.Success($"Carpeta del repo eliminada.", summary);
                 }
-                catch
-                {
-                    Printer.Error($"No se pudo eliminar la carpeta del repo.");
-                    summary?.TrackErr($"No se pudo eliminar la carpeta del repo.");
-                }
+                catch { Messenger.Error($"No se pudo eliminar la carpeta del repo.", summary); }
                 break;
 
             default:
-                Printer.Error($"Acción desconocida: {action}");
-                summary?.TrackErr($"Acción desconocida: {action}");
+                Messenger.Error($"Acción desconocida: {action}", summary);
                 break;
         }
     }
@@ -171,15 +154,9 @@ internal static class DeleteOp
             {
                 case "symlinks":
                     if (Shell.Remove(systemPath, true).Ok)
-                    {
-                        Printer.Success($"Symlink eliminado: {systemPath}");
-                        summary?.TrackOk($"Symlink eliminado: {systemPath}");
-                    }
+                        Messenger.Success($"Symlink eliminado: {systemPath}", summary);
                     else
-                    {
-                        Printer.Error($"No se pudo eliminar: {systemPath}");
-                        summary?.TrackErr($"No se pudo eliminar: {systemPath}");
-                    }
+                        Messenger.Error($"No se pudo eliminar: {systemPath}", summary);
                     break;
 
                 case "restore":
@@ -189,34 +166,21 @@ internal static class DeleteOp
                         ? Shell.Copy(entry, systemPath, asSudo: true, recursive: true).Ok
                         : Shell.Copy(entry, systemPath, asSudo: true).Ok;
                     if (copied)
-                    {
-                        Printer.Success($"Archivo restaurado: {systemPath}");
-                        summary?.TrackOk($"Archivo restaurado: {systemPath}");
-                    }
+                        Messenger.Success($"Archivo restaurado: {systemPath}", summary);
                     else
-                    {
-                        Printer.Error($"Falló la restauración de: {systemPath}");
-                        summary?.TrackErr($"Falló la restauración de: {systemPath}");
-                    }
+                        Messenger.Error($"Falló la restauración de: {systemPath}", summary);
                     break;
 
                 case "all":
                     Shell.Remove(systemPath, true);
                     if (Shell.Remove(entry, true).Ok)
-                    {
-                        Printer.Success($"Archivo del repo eliminado: {entry}");
-                        summary?.TrackOk($"Archivo del repo eliminado: {entry}");
-                    }
+                        Messenger.Success($"Archivo del repo eliminado: {entry}", summary);
                     else
-                    {
-                        Printer.Error($"No se pudo eliminar del repo: {entry}");
-                        summary?.TrackErr($"No se pudo eliminar del repo: {entry}");
-                    }
+                        Messenger.Error($"No se pudo eliminar del repo: {entry}", summary);
                     break;
 
                 default:
-                    Printer.Error($"Acción desconocida: {action}");
-                    summary?.TrackErr($"Acción desconocida: {action}");
+                    Messenger.Error($"Acción desconocida: {action}", summary);
                     break;
             }
         }

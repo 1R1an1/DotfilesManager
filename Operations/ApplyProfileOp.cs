@@ -30,9 +30,8 @@ internal static class ApplyProfileOp
         Console.WriteLine();
 
         foreach (var paso in perfil.Pasos)
-        {
             Printer.Info($"Paso {perfil.Pasos.IndexOf(paso) + 1}/{perfil.Pasos.Count}: {paso.Tipo} → {paso.Valor}");
-        }
+
 
         if (!Menu.Confirm("¿Aplicar este perfil?")) return;
 
@@ -73,23 +72,20 @@ internal static class ApplyProfileOp
             Printer.Warn("yay no está instalado. Instalando...");
             if (!Shell.InstallYay())
             {
-                Printer.Error("No se pudo instalar yay. Abortando perfil.");
-                summary?.TrackErr("No se pudo instalar yay.");
+                Messenger.Error("No se pudo instalar yay. Abortando perfil.", summary);
                 return;
             }
             Printer.Success("yay instalado.");
         }
         else
-        {
             Printer.Info("yay encontrado.");
-        }
+
 
         // ── Actualizar sistema UNA SOLA VEZ ──────────────────────────────
         Printer.Info("Actualizando sistema...");
         if (!Shell.UpdateSystem())
-        {
             Printer.Warn("Falló la actualización del sistema, continuando...");
-        }
+
 
         // ── Ejecutar pasos desde startIndex ─────────────────────────────
         for (int i = startIndex; i < perfil.Pasos.Count; i++)
@@ -108,14 +104,12 @@ internal static class ApplyProfileOp
 
             if (!ok)
             {
-                Printer.Error($"Perfil '{name}' cancelado por fallo en el paso {pasoNum}.");
-                summary?.TrackErr($"Perfil cancelado en paso {pasoNum}.");
+                Messenger.Error($"Perfil '{name}' cancelado por fallo en el paso {pasoNum}.", summary);
                 return;
             }
         }
 
-        Printer.Success($"Perfil '{name}' aplicado correctamente.");
-        summary?.TrackOk($"Perfil '{name}' aplicado.");
+        Messenger.Success($"Perfil '{name}' aplicado correctamente.", summary);
     }
 
     // ── Paso: Script ────────────────────────────────────────────────────
@@ -126,21 +120,18 @@ internal static class ApplyProfileOp
 
         if (!File.Exists(scriptPath))
         {
-            Printer.Error($"Script no encontrado: {scriptPath}");
-            summary?.TrackErr($"Script no encontrado: {scriptName}");
+            Messenger.Error($"Script no encontrado: {scriptPath}", summary);
             return false;
         }
 
         var (code, _, stderr, _) = Shell.Bash(scriptPath, visible: true);
         if (code != 0)
         {
-            Printer.Error($"Script falló: {stderr}");
-            summary?.TrackErr($"Script falló: {scriptName}");
+            Messenger.Error($"Script '{scriptName}' falló: {stderr}", summary);
             return false;
         }
 
-        Printer.Success($"Script ejecutado: {scriptName}");
-        summary?.TrackOk($"Script: {scriptName}");
+        Messenger.Success($"Script ejecutado: {scriptName}", summary);
         return true;
     }
 
@@ -158,15 +149,10 @@ internal static class ApplyProfileOp
         Printer.Info($"Instalando paquetes: {string.Join(", ", packages)}");
         bool ok = Shell.InstallPackages(packages);
         if (ok)
-        {
-            Printer.Success($"Paquetes instalados: {string.Join(", ", packages)}");
-            summary?.TrackOk($"Paquetes: {string.Join(", ", packages)}");
-        }
+            Messenger.Success($"Paquetes instalados: {string.Join(", ", packages)}", summary);
         else
-        {
-            Printer.Error("Falló la instalación de paquetes.");
-            summary?.TrackErr("Falló instalación de paquetes.");
-        }
+            Messenger.Error("Falló la instalación de paquetes.", summary);
+
         return ok;
     }
 }

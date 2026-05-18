@@ -110,8 +110,7 @@ internal static class AddOp
 
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            Printer.Error($"No existe: {path}");
-            summary?.TrackErr($"No existe: {path}");
+            Messenger.Error($"No existe: {path}", summary);
             return;
         }
 
@@ -123,23 +122,18 @@ internal static class AddOp
 
         if (!Shell.Move(path, destInRepo).Ok)
         {
-            Printer.Error($"No se pudo mover: {path}");
-            summary?.TrackErr($"No se pudo mover: {path}");
+            Messenger.Error($"No se pudo mover: {path}", summary);
             return;
         }
-        Printer.Success($"Movido a: {destInRepo}");
-        summary?.TrackOk($"Movido a: {destInRepo}");
+        Messenger.Success($"Movido a: {destInRepo}", summary);
 
         if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
-        {
-            Printer.Success($"Symlink creado en: ~/{rel}");
-            summary?.TrackOk($"Symlink creado en: ~/{rel}");
-        }
+            Messenger.Success($"Symlink creado en: ~/{rel}", summary);
+
         else
-        {
-            Printer.Error("stow falló al crear el symlink.");
-            summary?.TrackErr("stow falló al crear el symlink.");
-        }
+
+            Messenger.Error("stow falló al crear el symlink.", summary);
+
     }
 
     /// <summary>
@@ -149,8 +143,7 @@ internal static class AddOp
     {
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            Printer.Error($"No existe: {path}");
-            summary?.TrackErr($"No existe: {path}");
+            Messenger.Error($"No existe: {path}", summary);
             return;
         }
 
@@ -161,34 +154,29 @@ internal static class AddOp
 
         if (!Shell.Move(path, destInRepo, asSudo: true).Ok)
         {
-            Printer.Error($"No se pudo mover: {path}");
-            summary?.TrackErr($"No se pudo mover: {path}");
+            Messenger.Error($"No se pudo mover: {path}", summary);
             return;
         }
-        Printer.Success($"Movido a: {destInRepo}");
-        summary?.TrackOk($"Movido a: {destInRepo}");
+        Messenger.Success($"Movido a: {destInRepo}", summary);
 
         if (Directory.Exists(destInRepo))
         {
             var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
             foreach (string dest in created)
-            {
-                Printer.Success($"Symlink creado en: {dest}");
-                summary?.TrackOk($"Symlink creado en: {dest}");
-            }
+
+                Messenger.Success($"Symlink creado en: {dest}", summary);
+
         }
         else
         {
             if (Shell.Symlink(destInRepo, path, true).Ok)
-            {
-                Printer.Success($"Symlink creado en: {path}");
-                summary?.TrackOk($"Symlink creado en: {path}");
-            }
+
+                Messenger.Success($"Symlink creado en: {path}", summary);
+
             else
-            {
-                Printer.Error("No se pudo crear el symlink.");
-                summary?.TrackErr("No se pudo crear el symlink.");
-            }
+
+                Messenger.Error("No se pudo crear el symlink.", summary);
+
         }
     }
 }
