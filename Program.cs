@@ -13,7 +13,6 @@ internal static class Program
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
         Env.LoadOrInit();
-        _summary = new Summary();
 
         // Watcher para recargar DotfilesDir si cambia config.json
         using var watcher = new FileSystemWatcher(
@@ -31,8 +30,10 @@ internal static class Program
             Printer.Info($"DotfilesDir actualizado a: {Env.DotfilesDir}");
         };
 
+
         if (args.Length == 0)
         {
+            _summary = new Summary();
             RunInteractive();
         }
         else
