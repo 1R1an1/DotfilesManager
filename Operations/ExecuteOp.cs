@@ -5,7 +5,7 @@ namespace DotfilesManager.Operations;
 
 internal static class ExecuteOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
         if (!Directory.Exists(Env.ScriptsDir))
             Directory.CreateDirectory(Env.ScriptsDir);
@@ -27,40 +27,40 @@ internal static class ExecuteOp
 
         if (idx == -1) return;
 
-        summary.Reset();
+        Summary.Reset();
         Console.Clear();
         Printer.Header("Ejecutar script");
         Console.WriteLine();
         Printer.Info($"Ejecutando: {scriptNames[idx]}");
         Console.WriteLine();
 
-        RunScript(scriptNames[idx]!, summary);
+        RunScript(scriptNames[idx]!);
 
-        summary.Print();
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 
     /// <summary>
     /// Ejecuta un script por nombre sin interfaz interactiva.
     /// </summary>
-    public static bool RunScript(string name, Summary? summary = null)
+    public static bool RunScript(string name)
     {
         string scriptPath = Path.Combine(Env.ScriptsDir, name);
 
         if (!File.Exists(scriptPath))
         {
-            Messenger.Error($"Script no encontrado: {scriptPath}", summary);
+            Summary.TrackErr($"Script no encontrado: {scriptPath}");
             return false;
         }
 
         var (code, _, stderr, _) = Shell.Bash(scriptPath, visible: true);
         if (code != 0)
         {
-            Messenger.Error($"Script falló ({code}): {stderr}", summary);
+            Summary.TrackErr($"Script falló ({code}): {stderr}");
             return false;
         }
 
-        Messenger.Success($"Script ejecutado: {name}", summary);
+        Summary.TrackOk($"Script ejecutado: {name}");
         return true;
     }
 

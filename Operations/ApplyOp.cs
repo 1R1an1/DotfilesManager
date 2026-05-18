@@ -5,9 +5,9 @@ namespace DotfilesManager.Operations;
 
 internal static class ApplyOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
-        summary.Reset();
+        Summary.Reset();
 
         // ── Elegir qué aplicar ────────────────────────────────────────────
         Console.Clear();
@@ -42,18 +42,18 @@ internal static class ApplyOp
 
         // ── Aplicar paquetes de home ──────────────────────────────────────
         if (applyHome && hasHomePackages)
-            ApplyHomePackages(summary);
+            ApplyHomePackages();
 
         // ── Aplicar symlinks de sistema ───────────────────────────────────
         if (applySystem && hasSystemFiles)
-            ApplySystemSymlinks(summary);
+            ApplySystemSymlinks();
 
-        summary.Print();
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 
     // ── UI: selecciona paquetes y llama al método sin UI ──────────────────
-    private static void ApplyHomePackages(Summary summary)
+    private static void ApplyHomePackages()
     {
         string[] packages = Env.GetPackages();
         if (packages.Length == 0)
@@ -82,11 +82,11 @@ internal static class ApplyOp
             return;
 
         // Delegar en el método sin UI
-        ApplyHome(chosen, summary);
+        ApplyHome(chosen);
     }
 
     // ── UI: selecciona archivos de sistema y llama al método sin UI ───────
-    private static void ApplySystemSymlinks(Summary summary)
+    private static void ApplySystemSymlinks()
     {
         // TreeExplorer retorna las rutas absolutas de los items marcados dentro de system/
         string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a aplicar", Env.SystemDir);
@@ -101,7 +101,7 @@ internal static class ApplyOp
         }
 
         // Delegar en el método sin UI
-        ApplySystem(selected, summary);
+        ApplySystem(selected);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -111,7 +111,7 @@ internal static class ApplyOp
     /// <summary>
     /// Aplica paquetes stow sin interfaz interactiva.
     /// </summary>
-    public static bool ApplyHome(string[] packages, Summary? summary = null)
+    public static bool ApplyHome(string[] packages)
     {
         // Crear el directorio de backup con timestamp para esta sesión.
         string backupDir = Env.BackupDir + "_applyHomeAction";
@@ -119,7 +119,7 @@ internal static class ApplyOp
         foreach (string pkg in packages)
         {
             // Backup
-            var backups = Backup.BackupHomePackage(pkg, backupDir, summary);
+            var backups = Backup.BackupHomePackage(pkg, backupDir);
             if (backups is null) return false;
 
             foreach (var i in backups)
@@ -127,13 +127,13 @@ internal static class ApplyOp
 
             // Stow
             if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
-                Messenger.Success($"stow: {pkg}", summary);
+                Summary.TrackOk($"stow: {pkg}");
 
             else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
-                Messenger.Success($"stow (adopt): {pkg}", summary);
+                Summary.TrackOk($"stow (adopt): {pkg}");
             else
             {
-                Messenger.Error($"stow falló: {pkg}", summary);
+                Summary.TrackErr($"stow falló: {pkg}");
                 return false;
             }
         }
@@ -144,7 +144,7 @@ internal static class ApplyOp
     /// <summary>
     /// Aplica symlinks de sistema sin interfaz interactiva.
     /// </summary>
-    public static void ApplySystem(string[] repoPaths, Summary? summary = null)
+    public static void ApplySystem(string[] repoPaths)
     {
         // Crear el directorio de backup con timestamp para esta sesión.
         string backupDir = Env.BackupDir + "_applySystemAction";
@@ -159,29 +159,29 @@ internal static class ApplyOp
                 foreach (string file in Directory.GetFiles(entryInRepo, "*", SearchOption.AllDirectories))
                 {
                     string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                    if (!Backup.BackupSystemPath(dest, backupDir, summary))
+                    if (!Backup.BackupSystemPath(dest, backupDir))
                         return;
                 }
 
                 // Symlinks individuales
                 var created = Shell.SymlinkDirectoryContents(entryInRepo, systemPath, asSudo: true);
                 foreach (string dest in created)
-                    Messenger.Success($"symlink sistema: {dest}", summary);
+                    Summary.TrackOk($"symlink sistema: {dest}");
 
             }
             else if (File.Exists(entryInRepo))
             {
-                if (!Backup.BackupSystemPath(systemPath, backupDir, summary))
+                if (!Backup.BackupSystemPath(systemPath, backupDir))
                     return;
 
                 if (Shell.Symlink(entryInRepo, systemPath, true).Ok)
-                    Messenger.Success($"symlink sistema: {systemPath}", summary);
+                    Summary.TrackOk($"symlink sistema: {systemPath}");
                 else
-                    Messenger.Error($"symlink sistema falló: {systemPath}", summary);
+                    Summary.TrackErr($"symlink sistema falló: {systemPath}");
 
             }
             else
-                Messenger.Error($"No se encontró '{systemPath}' en el repo.", summary);
+                Summary.TrackErr($"No se encontró '{systemPath}' en el repo.");
 
         }
     }

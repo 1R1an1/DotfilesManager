@@ -7,7 +7,7 @@ namespace DotfilesManager.Operations;
 
 internal static class CreateProfileOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
         Console.Clear();
         Printer.Header("Crear perfil");
@@ -91,8 +91,8 @@ internal static class CreateProfileOp
         Printer.Header("Crear perfil");
         Console.WriteLine();
         Printer.Success($"Perfil '{nombre}' creado con {pasos.Count} paso(s).");
-        summary.TrackOk($"Perfil '{nombre}' creado.");
-        summary.Print();
+        Summary.TrackOk($"Perfil '{nombre}' creado.");
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 

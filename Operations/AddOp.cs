@@ -5,9 +5,9 @@ namespace DotfilesManager.Operations;
 
 internal static class AddOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
-        summary.Reset();
+        Summary.Reset();
 
         string[] sources = ["Desde home (~) — paquete stow", "Desde sistema (/etc u otro) — carpeta system/"];
         int choice = Menu.SelectOne("Agregar archivo — ¿desde dónde viene?", sources);
@@ -17,15 +17,15 @@ internal static class AddOp
 
         if (choice == -1) return;
 
-        if (choice == 0) AddFromHomeUI(summary);
-        else AddFromSystemUI(summary);
+        if (choice == 0) AddFromHomeUI();
+        else AddFromSystemUI();
 
-        summary.Print();
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 
     // ── UI: pide datos y llama al método sin UI ───────────────────────────
-    private static void AddFromHomeUI(Summary summary)
+    private static void AddFromHomeUI()
     {
         Console.WriteLine();
         Console.Write("  Ruta del archivo o carpeta: ");
@@ -72,11 +72,11 @@ internal static class AddOp
         Printer.Info($"Moviendo a: {Path.Combine(Env.DotfilesDir, package, Path.GetRelativePath(Env.HomeDir, path))}");
         if (!Menu.Confirm("¿Confirmar?")) return;
 
-        AddToHome(path, package, summary);
+        AddToHome(path, package);
     }
 
     // ── UI: pide ruta y llama al método sin UI ────────────────────────────
-    private static void AddFromSystemUI(Summary summary)
+    private static void AddFromSystemUI()
     {
         Console.WriteLine();
         Console.Write("  Ruta del archivo o carpeta del sistema: ");
@@ -93,7 +93,7 @@ internal static class AddOp
         Printer.Info($"Se moverá a: {Path.Combine(Env.SystemDir, path.TrimStart('/'))}");
         if (!Menu.Confirm("¿Confirmar (requiere sudo)?")) return;
 
-        AddToSystem(path, summary);
+        AddToSystem(path);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -103,79 +103,79 @@ internal static class AddOp
     /// <summary>
     /// Agrega un archivo/carpeta del home a un paquete stow sin UI.
     /// </summary>
-    public static void AddToHome(string path, string package, Summary? summary = null)
+    public static void AddToHome(string path, string package)
     {
         if (!path.StartsWith('/'))
             path = Path.Combine(Env.HomeDir, path);
 
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            Messenger.Error($"No existe: {path}", summary);
+            Summary.TrackErr($"No existe: {path}");
             return;
         }
 
         string rel = Path.GetRelativePath(Env.HomeDir, path);
         string destInRepo = Path.Combine(Env.DotfilesDir, package, rel);
 
-        if (!Backup.BackupHomePath(path, Env.BackupDir + "_addHomeAction", summary))
+        if (!Backup.BackupHomePath(path, Env.BackupDir + "_addHomeAction"))
             return;
 
         if (!Shell.Move(path, destInRepo).Ok)
         {
-            Messenger.Error($"No se pudo mover: {path}", summary);
+            Summary.TrackErr($"No se pudo mover: {path}");
             return;
         }
-        Messenger.Success($"Movido a: {destInRepo}", summary);
+        Summary.TrackOk($"Movido a: {destInRepo}");
 
         if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
-            Messenger.Success($"Symlink creado en: ~/{rel}", summary);
+            Summary.TrackOk($"Symlink creado en: ~/{rel}");
 
         else
 
-            Messenger.Error("stow falló al crear el symlink.", summary);
+            Summary.TrackErr("stow falló al crear el symlink.");
 
     }
 
     /// <summary>
     /// Agrega un archivo/carpeta a system/ sin UI.
     /// </summary>
-    public static void AddToSystem(string path, Summary? summary = null)
+    public static void AddToSystem(string path)
     {
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            Messenger.Error($"No existe: {path}", summary);
+            Summary.TrackErr($"No existe: {path}");
             return;
         }
 
         string destInRepo = Path.Combine(Env.SystemDir, path.TrimStart('/'));
 
-        if (!Backup.BackupSystemPath(path, Env.BackupDir + "_AddSystemAction", summary))
+        if (!Backup.BackupSystemPath(path, Env.BackupDir + "_AddSystemAction"))
             return;
 
         if (!Shell.Move(path, destInRepo, asSudo: true).Ok)
         {
-            Messenger.Error($"No se pudo mover: {path}", summary);
+            Summary.TrackErr($"No se pudo mover: {path}");
             return;
         }
-        Messenger.Success($"Movido a: {destInRepo}", summary);
+        Summary.TrackOk($"Movido a: {destInRepo}");
 
         if (Directory.Exists(destInRepo))
         {
             var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
             foreach (string dest in created)
 
-                Messenger.Success($"Symlink creado en: {dest}", summary);
+                Summary.TrackOk($"Symlink creado en: {dest}");
 
         }
         else
         {
             if (Shell.Symlink(destInRepo, path, true).Ok)
 
-                Messenger.Success($"Symlink creado en: {path}", summary);
+                Summary.TrackOk($"Symlink creado en: {path}");
 
             else
 
-                Messenger.Error("No se pudo crear el symlink.", summary);
+                Summary.TrackErr("No se pudo crear el symlink.");
 
         }
     }

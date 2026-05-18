@@ -2,18 +2,18 @@ namespace DotfilesManager.UI;
 
 // Lleva la cuenta de operaciones exitosas y fallidas durante una operación,
 // y las muestra en una tabla al final.
-internal sealed class Summary
+internal static class Summary
 {
-    private int _ok;
-    private int _err;
+    private static int _ok;
+    private static int _err;
 
-    public void Reset() { _ok = 0; _err = 0; }
+    public static void Reset() { _ok = 0; _err = 0; }
 
     // TrackOk y TrackErr incrementan el contador e imprimen el mensaje en pantalla
-    public void TrackOk(string msg) { _ok++; Printer.Success(msg); }
-    public void TrackErr(string msg) { _err++; Printer.Error(msg); }
+    public static void TrackOk(string msg) { _ok++; Printer.Success(msg); }
+    public static void TrackErr(string msg) { _err++; Printer.Error(msg); }
 
-    public void Print()
+    public static void Print()
     {
         // El padding alinea el borde derecho de la tabla
         // independientemente de cuántos dígitos tengan los números

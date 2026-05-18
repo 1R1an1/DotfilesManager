@@ -5,9 +5,9 @@ namespace DotfilesManager.Operations;
 
 internal static class DeleteOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
-        summary.Reset();
+        Summary.Reset();
 
         string[] topOptions = ["Symlinks de un paquete stow (home)", "Symlink de sistema (/etc u otro)"];
         int choice = Menu.SelectOne("Borrar symlinks — ¿qué querés eliminar?", topOptions);
@@ -17,15 +17,15 @@ internal static class DeleteOp
         Console.Clear();
         Printer.Header("Borrar symlinks");
 
-        if (choice == 0) DeletePackageUI(summary);
-        else DeleteSystemSymlinksUI(summary);
+        if (choice == 0) DeletePackageUI();
+        else DeleteSystemSymlinksUI();
 
-        summary.Print();
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 
     // ── UI: selecciona paquete y acción, delega en método sin UI ──────────
-    private static void DeletePackageUI(Summary summary)
+    private static void DeletePackageUI()
     {
         string[] packages = Env.GetPackages();
         int pkgIdx = Menu.SelectOne("Seleccioná el paquete a desenlazar", packages);
@@ -48,11 +48,11 @@ internal static class DeleteOp
         if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}' en '{package}'?"))
             return;
 
-        DeleteHome(package, action, summary);
+        DeleteHome(package, action);
     }
 
     // ── UI: selecciona archivos de system/ y acción, delega en sin UI ─────
-    private static void DeleteSystemSymlinksUI(Summary summary)
+    private static void DeleteSystemSymlinksUI()
     {
         string[] selected = TreeExplorer.Run("Seleccioná archivos/carpetas de sistema a eliminar", Env.SystemDir);
 
@@ -80,7 +80,7 @@ internal static class DeleteOp
 
         if (!Menu.Confirm($"¿Realizar acción '{actions[actionIdx]}'?")) return;
 
-        DeleteSystem(selected, action, summary);
+        DeleteSystem(selected, action);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -91,7 +91,7 @@ internal static class DeleteOp
     /// Elimina symlinks de un paquete stow.
     /// action: "symlinks" (default), "restore", "all"
     /// </summary>
-    public static void DeleteHome(string package, string action = "symlinks", Summary? summary = null)
+    public static void DeleteHome(string package, string action = "symlinks")
     {
         string pkgDir = Path.Combine(Env.DotfilesDir, package);
 
@@ -99,9 +99,9 @@ internal static class DeleteOp
         {
             case "symlinks":
                 if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
-                    Messenger.Success($"Symlinks de '{package}' eliminados.", summary);
+                    Summary.TrackOk($"Symlinks de '{package}' eliminados.");
                 else
-                    Messenger.Error($"No se pudieron eliminar los symlinks de '{package}'.", summary);
+                    Summary.TrackErr($"No se pudieron eliminar los symlinks de '{package}'.");
                 break;
 
             case "restore":
@@ -109,19 +109,19 @@ internal static class DeleteOp
                 if (!Shell.Stow(Env.DotfilesDir, Env.HomeDir, package, delete: true).Ok)
                 {
                     Printer.Error($"stow -D falló para '{package}', abortando.");
-                    summary?.TrackErr($"stow -D falló para '{package}'.");
+                    Summary.TrackErr($"stow -D falló para '{package}'.");
                     return;
                 }
-                summary?.TrackOk($"Symlinks de '{package}' eliminados.");
+                Summary.TrackOk($"Symlinks de '{package}' eliminados.");
 
                 if (Shell.Copy(pkgDir, Env.HomeDir, recursive: true, contents: true).Ok)
                 {
                     foreach (string src in files)
-                        Messenger.Success($"Restaurado: ~/{Path.GetRelativePath(pkgDir, src)}", summary);
+                        Summary.TrackOk($"Restaurado: ~/{Path.GetRelativePath(pkgDir, src)}");
 
                 }
                 else
-                    Messenger.Error($"Falló la copia masiva del paquete '{package}'.", summary);
+                    Summary.TrackErr($"Falló la copia masiva del paquete '{package}'.");
                 break;
 
             case "all":
@@ -129,13 +129,13 @@ internal static class DeleteOp
                 try
                 {
                     Directory.Delete(pkgDir, recursive: true);
-                    Messenger.Success($"Carpeta del repo eliminada.", summary);
+                    Summary.TrackOk($"Carpeta del repo eliminada.");
                 }
-                catch { Messenger.Error($"No se pudo eliminar la carpeta del repo.", summary); }
+                catch { Summary.TrackErr($"No se pudo eliminar la carpeta del repo."); }
                 break;
 
             default:
-                Messenger.Error($"Acción desconocida: {action}", summary);
+                Summary.TrackErr($"Acción desconocida: {action}");
                 break;
         }
     }
@@ -144,7 +144,7 @@ internal static class DeleteOp
     /// Elimina symlinks de sistema.
     /// action: "symlinks" (default), "restore", "all"
     /// </summary>
-    public static void DeleteSystem(string[] repoPaths, string action = "symlinks", Summary? summary = null)
+    public static void DeleteSystem(string[] repoPaths, string action = "symlinks")
     {
         foreach (string entry in repoPaths)
         {
@@ -154,33 +154,33 @@ internal static class DeleteOp
             {
                 case "symlinks":
                     if (Shell.Remove(systemPath, true).Ok)
-                        Messenger.Success($"Symlink eliminado: {systemPath}", summary);
+                        Summary.TrackOk($"Symlink eliminado: {systemPath}");
                     else
-                        Messenger.Error($"No se pudo eliminar: {systemPath}", summary);
+                        Summary.TrackErr($"No se pudo eliminar: {systemPath}");
                     break;
 
                 case "restore":
-                    Backup.BackupSystemPath(systemPath, Env.BackupDir + "_deleteAction", summary);
+                    Backup.BackupSystemPath(systemPath, Env.BackupDir + "_deleteAction");
                     Shell.Remove(systemPath, true);
                     bool copied = Directory.Exists(entry)
                         ? Shell.Copy(entry, systemPath, asSudo: true, recursive: true).Ok
                         : Shell.Copy(entry, systemPath, asSudo: true).Ok;
                     if (copied)
-                        Messenger.Success($"Archivo restaurado: {systemPath}", summary);
+                        Summary.TrackOk($"Archivo restaurado: {systemPath}");
                     else
-                        Messenger.Error($"Falló la restauración de: {systemPath}", summary);
+                        Summary.TrackErr($"Falló la restauración de: {systemPath}");
                     break;
 
                 case "all":
                     Shell.Remove(systemPath, true);
                     if (Shell.Remove(entry, true).Ok)
-                        Messenger.Success($"Archivo del repo eliminado: {entry}", summary);
+                        Summary.TrackOk($"Archivo del repo eliminado: {entry}");
                     else
-                        Messenger.Error($"No se pudo eliminar del repo: {entry}", summary);
+                        Summary.TrackErr($"No se pudo eliminar del repo: {entry}");
                     break;
 
                 default:
-                    Messenger.Error($"Acción desconocida: {action}", summary);
+                    Summary.TrackErr($"Acción desconocida: {action}");
                     break;
             }
         }

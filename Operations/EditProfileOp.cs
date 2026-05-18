@@ -8,7 +8,7 @@ namespace DotfilesManager.Operations;
 
 internal static class EditProfileOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
         var profiles = ProfileStore.Load();
         if (profiles.Count == 0)
@@ -24,10 +24,10 @@ internal static class EditProfileOp
         if (idx == -1) return;
 
         var perfil = profiles[idx];
-        EditarPerfil(perfil, profiles, summary);
+        EditarPerfil(perfil, profiles);
     }
 
-    private static void EditarPerfil(Profile perfil, List<Profile> allProfiles, Summary summary)
+    private static void EditarPerfil(Profile perfil, List<Profile> allProfiles)
     {
         while (true)
         {

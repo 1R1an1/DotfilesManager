@@ -7,7 +7,7 @@ namespace DotfilesManager.Operations;
 
 internal static class ApplyProfileOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
         var profiles = ProfileStore.Load();
 
@@ -35,16 +35,16 @@ internal static class ApplyProfileOp
 
         if (!Menu.Confirm("¿Aplicar este perfil?")) return;
 
-        summary.Reset();
-        ApplyProfile(perfil.Nombre, summary);
-        summary.Print();
+        Summary.Reset();
+        ApplyProfile(perfil.Nombre);
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 
     /// <summary>
     /// Aplica un perfil por nombre sin interfaz interactiva.
     /// </summary>
-    public static void ApplyProfile(string name, Summary? summary = null, int startStep = 0)
+    public static void ApplyProfile(string name, int startStep = 0)
     {
         var profiles = ProfileStore.Load();
         var perfil = profiles.FirstOrDefault(p => p.Nombre == name);
@@ -72,7 +72,7 @@ internal static class ApplyProfileOp
             Printer.Warn("yay no está instalado. Instalando...");
             if (!Shell.InstallYay())
             {
-                Messenger.Error("No se pudo instalar yay. Abortando perfil.", summary);
+                Summary.TrackErr("No se pudo instalar yay. Abortando perfil.");
                 return;
             }
             Printer.Success("yay instalado.");
@@ -99,39 +99,39 @@ internal static class ApplyProfileOp
 
             bool ok = paso.Tipo switch
             {
-                StepType.Script => ExecuteOp.RunScript(paso.Valor, summary),
-                StepType.Dotfile => ApplyOp.ApplyHome(paso.ObtenerItems(), summary),
-                StepType.Package => ExecutePackageStep(paso, summary),
+                StepType.Script => ExecuteOp.RunScript(paso.Valor),
+                StepType.Dotfile => ApplyOp.ApplyHome(paso.ObtenerItems()),
+                StepType.Package => ExecutePackageStep(paso),
                 _ => false
             };
 
             if (!ok)
             {
-                Messenger.Error($"Perfil '{name}' cancelado por fallo en el paso {pasoNum}.", summary);
+                Summary.TrackErr($"Perfil '{name}' cancelado por fallo en el paso {pasoNum}.");
                 return;
             }
         }
 
-        Messenger.Success($"Perfil '{name}' aplicado correctamente.", summary);
+        Summary.TrackOk($"Perfil '{name}' aplicado correctamente.");
     }
 
     // ── Paso: Package (yay) ─────────────────────────────────────────────
-    private static bool ExecutePackageStep(ProfileStep paso, Summary? summary)
+    private static bool ExecutePackageStep(ProfileStep paso)
     {
         string[] packages = paso.ObtenerItems();
         if (packages.Length == 0)
         {
             Printer.Error("No se especificaron paquetes en el paso.");
-            summary?.TrackErr("Paso Package sin paquetes.");
+            Summary.TrackErr("Paso Package sin paquetes.");
             return false;
         }
 
         Printer.Info($"Instalando paquetes: {string.Join(", ", packages)}");
         bool ok = Shell.InstallPackages(packages);
         if (ok)
-            Messenger.Success($"Paquetes instalados: {string.Join(", ", packages)}", summary);
+            Summary.TrackOk($"Paquetes instalados: {string.Join(", ", packages)}");
         else
-            Messenger.Error("Falló la instalación de paquetes.", summary);
+            Summary.TrackErr("Falló la instalación de paquetes.");
 
         return ok;
     }

@@ -8,7 +8,7 @@ namespace DotfilesManager.Operations;
 
 internal static class ExportProfileOp
 {
-    public static void Run(Summary summary)
+    public static void Run()
     {
         var profiles = ProfileStore.Load();
         if (profiles.Count == 0)
@@ -27,8 +27,8 @@ internal static class ExportProfileOp
         string scriptPath = Path.Combine(Env.ScriptsDir, $"{perfil.Nombre}.sh");
         string contenido = GenerarScript(perfil);
         File.WriteAllText(scriptPath, contenido);
-        Messenger.Success($"Perfil '{perfil.Nombre}' exportado al script {scriptPath}");
-        summary.Print();
+        Summary.TrackOk($"Perfil '{perfil.Nombre}' exportado al script {scriptPath}");
+        Summary.Print();
         Printer.PressEnterToContinue();
     }
 

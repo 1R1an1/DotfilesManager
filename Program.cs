@@ -6,8 +6,6 @@ namespace DotfilesManager;
 
 internal static class Program
 {
-    private static Summary _summary = null!;
-
     public static void Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -33,7 +31,6 @@ internal static class Program
 
         if (args.Length == 0)
         {
-            _summary = new Summary();
             Env.CliMode = 0;
             RunInteractive();
         }
@@ -61,7 +58,7 @@ internal static class Program
                     break;
                 case 1:
                     Printer.color = Colors.Yellow;
-                    ExecuteOp.Run(_summary);
+                    ExecuteOp.Run();
                     Printer.color = Printer.defaultColor;
                     break;
                 case 2:
@@ -180,10 +177,10 @@ internal static class Program
             switch (choice)
             {
                 case -1: running = false; break;
-                case 0: ApplyOp.Run(_summary); break;
+                case 0: ApplyOp.Run(); break;
                 case 1: StatusOp.Run(); break;
-                case 2: DeleteOp.Run(_summary); break;
-                case 3: AddOp.Run(_summary); break;
+                case 2: DeleteOp.Run(); break;
+                case 3: AddOp.Run(); break;
             }
         }
     }
@@ -208,10 +205,10 @@ internal static class Program
             switch (choice)
             {
                 case -1: running = false; break;
-                case 0: CreateProfileOp.Run(_summary); break;
-                case 1: EditProfileOp.Run(_summary); break;
-                case 2: ApplyProfileOp.Run(_summary); break;
-                case 3: ExportProfileOp.Run(_summary); break;
+                case 0: CreateProfileOp.Run(); break;
+                case 1: EditProfileOp.Run(); break;
+                case 2: ApplyProfileOp.Run(); break;
+                case 3: ExportProfileOp.Run(); break;
             }
             Printer.color = Printer.defaultColor;
         }

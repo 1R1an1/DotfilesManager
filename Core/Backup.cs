@@ -7,12 +7,12 @@ internal static class Backup
     // Hace backup de los archivos reales (no symlinks) que stow va a reemplazar.
     // Ahora usa un único comando cp --parents para copiar todo de una vez,
     // en lugar de lanzar un proceso por cada archivo.
-    public static string[]? BackupHomePackage(string package, string backupDir, Summary? summary = null)
+    public static string[]? BackupHomePackage(string package, string backupDir)
     {
         string srcDir = Path.Combine(Env.DotfilesDir, package);
         if (!Directory.Exists(srcDir))
         {
-            Messenger.Error($"El paquete '{package}' no existe en el repo.");
+            Summary.TrackErr($"El paquete '{package}' no existe en el repo.");
             return null;
         }
 
@@ -41,7 +41,7 @@ internal static class Backup
 
         if (!code)
         {
-            Messenger.Error($"Error en backup de: {package} ({stderr})");
+            Summary.TrackErr($"Error en backup de: {package} ({stderr})");
             return null;
         }
 
@@ -56,18 +56,18 @@ internal static class Backup
 
     // Hace backup de un archivo o carpeta en home. Si falla, registra el error en summary
     // (si se pasó uno) o imprime un warning.
-    public static bool BackupHomePath(string absolutePath, string backupDir, Summary? summary = null)
+    public static bool BackupHomePath(string absolutePath, string backupDir)
     {
         // Validar que la ruta esté dentro del home
         if (!absolutePath.StartsWith(Env.HomeDir))
         {
-            Messenger.Error($"La ruta debe estar dentro del home ({Env.HomeDir}): {absolutePath}");
+            Summary.TrackErr($"La ruta debe estar dentro del home ({Env.HomeDir}): {absolutePath}");
             return false;
         }
 
         if (!File.Exists(absolutePath) && !Directory.Exists(absolutePath))
         {
-            Messenger.Error($"No existe: {absolutePath}");
+            Summary.TrackErr($"No existe: {absolutePath}");
             return false;
         }
 
@@ -85,31 +85,31 @@ internal static class Backup
         }
         else
         {
-            Messenger.Error($"No se pudo hacer backup de: {absolutePath} ({stderr})");
+            Summary.TrackErr($"No se pudo hacer backup de: {absolutePath} ({stderr})");
             return false;
         }
     }
 
     // Hace backup de un archivo o carpeta de sistema usando sudo.
-    public static bool BackupSystemPath(string absolutePath, string backupDir, Summary? summary = null)
+    public static bool BackupSystemPath(string absolutePath, string backupDir)
     {
         // Validar que sea ruta absoluta
         if (!absolutePath.StartsWith('/'))
         {
-            Messenger.Error($"La ruta debe ser absoluta: {absolutePath}");
+            Summary.TrackErr($"La ruta debe ser absoluta: {absolutePath}");
             return false;
         }
 
         // Validar que no esté dentro del home
         if (absolutePath.StartsWith(Env.HomeDir))
         {
-            Messenger.Error($"La ruta no puede estar dentro del home, usá BackupHomeFile: {absolutePath}");
+            Summary.TrackErr($"La ruta no puede estar dentro del home, usá BackupHomeFile: {absolutePath}");
             return false;
         }
 
         if (!File.Exists(absolutePath) && !Directory.Exists(absolutePath))
         {
-            Messenger.Error($"No existe: {absolutePath}");
+            Summary.TrackErr($"No existe: {absolutePath}");
             return false;
         }
 
@@ -122,7 +122,7 @@ internal static class Backup
         if (ok)
             Printer.Info($"Backup de sistema: {absolutePath} → {dest}");
         else
-            Messenger.Error($"No se pudo hacer backup de: {absolutePath}");
+            Summary.TrackErr($"No se pudo hacer backup de: {absolutePath}");
 
         return ok;
     }
@@ -134,7 +134,7 @@ internal static class Backup
     /// <summary>
     /// Backup de uno o varios paquetes del repo.
     /// </summary>
-    public static bool BackupRepoPackages(string[] packages, string backupDir, Summary? summary = null)
+    public static bool BackupRepoPackages(string[] packages, string backupDir)
     {
         bool allOk = true;
         foreach (string pkg in packages)
@@ -142,7 +142,7 @@ internal static class Backup
             string srcDir = Path.Combine(Env.DotfilesDir, pkg);
             if (!Directory.Exists(srcDir))
             {
-                Messenger.Error($"El paquete '{pkg}' no existe en el repo.");
+                Summary.TrackErr($"El paquete '{pkg}' no existe en el repo.");
                 allOk = false;
                 continue;
             }
@@ -156,7 +156,7 @@ internal static class Backup
                 Printer.Info($"Backup del paquete '{pkg}' → {destDir}");
             else
             {
-                Messenger.Error($"Error en backup del paquete '{pkg}': {stderr}"); ;
+                Summary.TrackErr($"Error en backup del paquete '{pkg}': {stderr}"); ;
                 allOk = false;
             }
         }
@@ -166,22 +166,22 @@ internal static class Backup
     /// <summary>
     /// Backup de todos los paquetes del repo.
     /// </summary>
-    public static bool BackupAllRepoPackages(string backupDir, Summary? summary = null)
+    public static bool BackupAllRepoPackages(string backupDir)
     {
         string[] packages = Env.GetPackages();
         if (packages.Length == 0)
         {
-            Messenger.Error("No hay paquetes en el repo.");
+            Summary.TrackErr("No hay paquetes en el repo.");
             return false;
         }
 
-        return BackupRepoPackages(packages, backupDir, summary);
+        return BackupRepoPackages(packages, backupDir);
     }
 
     /// <summary>
     /// Backup de una o varias rutas relativas a system/.
     /// </summary>
-    public static bool BackupRepoSystemPaths(string[] paths, string backupDir, Summary? summary = null)
+    public static bool BackupRepoSystemPaths(string[] paths, string backupDir)
     {
         bool allOk = true;
         foreach (string path in paths)
@@ -197,7 +197,7 @@ internal static class Backup
                     Printer.Info($"Backup de system/{path} → {dest}");
                 else
                 {
-                    Messenger.Error($"Error en backup de system/{path}: {stderr}");
+                    Summary.TrackErr($"Error en backup de system/{path}: {stderr}");
                     allOk = false;
                 }
             }
@@ -209,13 +209,13 @@ internal static class Backup
                     Printer.Info($"Backup de system/{path} → {dest}");
                 else
                 {
-                    Messenger.Error($"Error en backup de system/{path}: {stderr}");
+                    Summary.TrackErr($"Error en backup de system/{path}: {stderr}");
                     allOk = false;
                 }
             }
             else
             {
-                Messenger.Error($"No existe system/{path}");
+                Summary.TrackErr($"No existe system/{path}");
                 allOk = false;
             }
         }
@@ -225,12 +225,12 @@ internal static class Backup
     /// <summary>
     /// Backup de toda la carpeta system/.
     /// </summary>
-    public static bool BackupAllRepoSystem(string backupDir, Summary? summary = null)
+    public static bool BackupAllRepoSystem(string backupDir)
     {
         string srcDir = Env.SystemDir;
         if (!Directory.Exists(srcDir))
         {
-            Messenger.Error("La carpeta system/ no existe en el repo.");
+            Summary.TrackErr("La carpeta system/ no existe en el repo.");
             return false;
         }
 
@@ -241,7 +241,7 @@ internal static class Backup
         if (ok)
             Printer.Info($"Backup de system/ → {destDir}");
         else
-            Messenger.Error($"Error en backup de system/: {stderr}");
+            Summary.TrackErr($"Error en backup de system/: {stderr}");
 
         return ok;
     }
