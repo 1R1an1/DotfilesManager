@@ -525,9 +525,11 @@ Uso: dotfiles-manager <comando> [opciones]
 ═══════════════════════════════════════════════════════════════
 
   Comando: add
-    -H, --home <ruta>             Agregar archivo/carpeta del home
-    -s, --system <ruta>           Agregar archivo/carpeta al sistema
-    -p, --package <paquete>       Paquete stow destino (solo con --home)
+    -H, --home <ruta> -p, --package <paquete>
+        Agregar archivo/carpeta del home a un paquete stow
+
+    -s, --system <ruta>
+        Agregar archivo/carpeta al sistema
 ");
                 break;
 
@@ -555,9 +557,13 @@ Uso: dotfiles-manager <comando> [opciones]
 ═══════════════════════════════════════════════════════════════
 
   Comando: delete, d, del
-    -H, --home <paquete>          Eliminar symlinks de un paquete stow
-    -s, --system <rutas...>       Eliminar symlinks de sistema
-    -A, --action <accion>         Acción: symlinks | restore | all
+    -H, --home <paquete> -A, --action <accion>
+        Eliminar symlinks de un paquete stow
+
+    -s, --system <rutas...> -A, --action <accion>
+        Eliminar symlinks de sistema
+
+    Acciones: symlinks | restore | all
 ");
                 break;
 
