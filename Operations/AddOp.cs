@@ -129,11 +129,14 @@ internal static class AddOp
 
         if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
             Summary.TrackOk($"Symlink creado en: ~/{rel}");
-
         else
-
+        {
             Summary.TrackErr("stow falló al crear el symlink.");
-
+            if (!Shell.Move(destInRepo, path).Ok)
+                Summary.TrackErr("Error al intentar mover el archivo/carpeta a su ubicacion original");
+            else
+                Summary.TrackOk("Archivo/carpeta restaurado a su ubicacion original");
+        }
     }
 
     /// <summary>
@@ -163,19 +166,20 @@ internal static class AddOp
         {
             var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
             foreach (string dest in created)
-
                 Summary.TrackOk($"Symlink creado en: {dest}");
-
         }
         else
         {
             if (Shell.Symlink(destInRepo, path, true).Ok)
-
                 Summary.TrackOk($"Symlink creado en: {path}");
-
             else
-
+            {
                 Summary.TrackErr("No se pudo crear el symlink.");
+                if (!Shell.Move(destInRepo, path, true).Ok)
+                    Summary.TrackErr("Error al intentar mover el archivo/carpeta a su ubicacion original");
+                else
+                    Summary.TrackOk("Archivo/carpeta restaurado a su ubicacion original");
+            }
 
         }
     }
