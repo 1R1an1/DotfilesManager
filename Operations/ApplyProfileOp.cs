@@ -82,9 +82,12 @@ internal static class ApplyProfileOp
 
 
         // ── Actualizar sistema UNA SOLA VEZ ──────────────────────────────
-        Printer.Info("Actualizando sistema...");
-        if (!Shell.UpdateSystem())
-            Printer.Warn("Falló la actualización del sistema, continuando...");
+        if (startIndex == 0)
+        {
+            Printer.Info("Actualizando sistema...");
+            if (!Shell.UpdateSystem())
+                Printer.Warn("Falló la actualización del sistema, continuando...");
+        }
 
 
         // ── Ejecutar pasos desde startIndex ─────────────────────────────
