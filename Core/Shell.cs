@@ -171,6 +171,27 @@ internal static class Shell
     }
 
     /// <summary>
+    /// Crea un enlace inteligente: si el origen es una carpeta, usa la lógica recursiva
+    /// de archivos; de lo contrario, crea un symlink normal.
+    /// </summary>
+    /// <param name="source">Ruta absoluta del origen (en el repo)</param>
+    /// <param name="dest">Ruta absoluta del destino (en el HOME)</param>
+    /// <param name="asSudo">Si true, usa sudo para la operación</param>
+    /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
+    public static (bool Ok, string Stdout, string Stderr) Symlink(
+        string source,
+        string dest,
+        bool asSudo = false)
+    {
+        if (!Directory.Exists(source) && File.Exists(source))
+            return SymlinkFile(source, dest, asSudo: asSudo);
+
+        // Si el origen es un directorio real en el disco, aplicamos el método recursivo
+        var ok = SymlinkDirectoryContents(source, dest, asSudo);
+        return (ok is null ? false : true, string.Empty, string.Empty);
+    }
+
+    /// <summary>
     /// Crea un symlink en dest apuntando a source.
     /// </summary>
     /// <param name="source">Ruta a la que apunta el symlink</param>
@@ -178,24 +199,43 @@ internal static class Shell
     /// <param name="asSudo">Si true, usa sudo</param>
     /// <param name="force">Si true, borra el destino si ya existe y no es symlink</param>
     /// <returns>Tupla con Ok (éxito), Stdout y Stderr</returns>
-    public static (bool Ok, string Stdout, string Stderr) Symlink(
+    public static (bool Ok, string Stdout, string Stderr) SymlinkFile(
         string source,
         string dest,
         bool asSudo = false,
-        bool force = true)
+        bool force = false)
     {
-        // Crear directorio padre del symlink
+        // 1. Crear directorio padre del symlink de forma segura
         string? destDir = Path.GetDirectoryName(dest);
         if (destDir is not null)
             Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
 
-        // Si force y existe algo que no es symlink, borrarlo
-        if (force)
+        // 2. Control de daños estricto si el destino ya existe
+        bool exists = File.Exists(dest) || Directory.Exists(dest);
+        if (exists && force)
         {
-            bool exists = File.Exists(dest) || Directory.Exists(dest);
-            bool isSymlink = exists && new FileInfo(dest).Attributes.HasFlag(FileAttributes.ReparsePoint);
-            if (exists && !isSymlink)
-                Run("rm", $"-rf \"{dest}\"", asSudo: asSudo);
+            var fileInfo = new FileInfo(dest);
+            bool isSymlink = fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
+
+            if (isSymlink)
+            {
+                // Si ya es un symlink (válido o roto), es 100% seguro borrarlo con rm normal
+                Run("rm", $"-f \"{dest}\"", asSudo: asSudo);
+            }
+            else if (Directory.Exists(dest))
+            {
+                // Si es un directorio real, SOLO lo borramos si está completamente vacío
+                bool isDirectoryEmpty = !Directory.EnumerateFileSystemEntries(dest).Any();
+                if (isDirectoryEmpty)
+                    Run("rmdir", $"\"{dest}\"", asSudo: asSudo); // rmdir falla si no está vacío, doble protección
+                else
+                    // BOMBA EVITADA: Tiene archivos adentro, abortamos para no destruir data
+                    return (false, string.Empty, $"ERROR DE SEGURIDAD: El destino '{dest}' es una carpeta real y contiene archivos. Abortando para evitar pérdida de datos.");
+            }
+            else
+                // Si es un archivo real suelto
+                return (false, string.Empty, $"ERROR DE SEGURIDAD: El destino '{dest}' es un archivo real. Abortando para evitar pérdida de datos.");
+
         }
 
         var (code, stdout, stderr, _) = Run("ln", $"-sf \"{source}\" \"{dest}\"", asSudo: asSudo);
@@ -210,12 +250,12 @@ internal static class Shell
     /// <param name="targetDir">Carpeta destino donde se crearán los symlinks (ej: /boot/grub/themes)</param>
     /// <param name="asSudo">Si true, usa sudo para crear los symlinks</param>
     /// <returns>Lista de rutas de destino donde se crearon symlinks</returns>
-    public static List<string> SymlinkDirectoryContents(string sourceDir, string targetDir, bool asSudo = false)
+    public static List<string>? SymlinkDirectoryContents(string sourceDir, string targetDir, bool asSudo = false)
     {
         List<string> created = new();
 
         if (!Directory.Exists(sourceDir))
-            return created;
+            return null;
 
         foreach (string file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
         {
@@ -228,7 +268,7 @@ internal static class Shell
                 Run("mkdir", $"-p \"{destDir}\"", asSudo: asSudo);
 
             // Crear el symlink del archivo
-            var (ok, _, _) = Symlink(file, dest, asSudo: asSudo);
+            var (ok, _, _) = SymlinkFile(file, dest, asSudo: asSudo);
             if (ok)
                 created.Add(dest);
         }

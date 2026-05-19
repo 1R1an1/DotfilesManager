@@ -36,12 +36,6 @@ internal static class AddOp
             ? Path.Combine(Env.HomeDir, input[2..])
             : input;
 
-        if (!File.Exists(path) && !Directory.Exists(path))
-        {
-            Printer.Error($"No existe: {path}");
-            return;
-        }
-
         // Mostrar paquetes existentes con "Crear paquete nuevo" al principio
         string[] packages = Env.GetPackages();
         string[] pkgOptions = ["── Crear paquete nuevo ──", .. packages];
@@ -108,6 +102,13 @@ internal static class AddOp
         if (!path.StartsWith('/'))
             path = Path.Combine(Env.HomeDir, path);
 
+        // Si es absoluta pero NO empieza con la ruta de tu HOME, es de la raíz, no sirve
+        if (!path.StartsWith(Env.HomeDir))
+        {
+            Summary.TrackErr($"Error: '{path}' está fuera de la HOME. Este método solo gestiona archivos del usuario.");
+            return;
+        }
+
         if (!File.Exists(path) && !Directory.Exists(path))
         {
             Summary.TrackErr($"No existe: {path}");
@@ -127,11 +128,15 @@ internal static class AddOp
         }
         Summary.TrackOk($"Movido a: {destInRepo}");
 
-        if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, package).Ok)
+        // Cambiamos el viejo Shell.Stow por tu nuevo método inteligente.
+        // Le pasás la ruta de origen en el repo (destInRepo) y la de destino en el HOME (path)
+        var (ok, _, err) = Shell.Symlink(destInRepo, path);
+
+        if (ok)
             Summary.TrackOk($"Symlink creado en: ~/{rel}");
         else
         {
-            Summary.TrackErr("stow falló al crear el symlink.");
+            Summary.TrackErr($"stow falló al crear el symlink: \n{err}");
             if (!Shell.Move(destInRepo, path).Ok)
                 Summary.TrackErr("Error al intentar mover el archivo/carpeta a su ubicacion original");
             else
@@ -165,7 +170,7 @@ internal static class AddOp
         if (Directory.Exists(destInRepo))
         {
             var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
-            foreach (string dest in created)
+            foreach (string dest in created!)
                 Summary.TrackOk($"Symlink creado en: {dest}");
         }
         else

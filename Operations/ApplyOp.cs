@@ -165,7 +165,7 @@ internal static class ApplyOp
 
                 // Symlinks individuales
                 var created = Shell.SymlinkDirectoryContents(entryInRepo, systemPath, asSudo: true);
-                foreach (string dest in created)
+                foreach (string dest in created!)
                     Summary.TrackOk($"symlink sistema: {dest}");
 
             }
