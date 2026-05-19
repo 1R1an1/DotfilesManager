@@ -125,15 +125,16 @@ internal static class ApplyOp
             foreach (var i in backups)
                 File.Delete(i);
 
+            var result = Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg);
             // Stow
-            if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg).Ok)
+            if (result.Ok)
                 Summary.TrackOk($"stow: {pkg}");
 
-            else if (Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true).Ok)
+            else if ((result = Shell.Stow(Env.DotfilesDir, Env.HomeDir, pkg, adopt: true)).Ok)
                 Summary.TrackOk($"stow (adopt): {pkg}");
             else
             {
-                Summary.TrackErr($"stow falló: {pkg}");
+                Summary.TrackErr($"stow falló: \n{result.Stderr}");
                 return false;
             }
         }
@@ -149,39 +150,46 @@ internal static class ApplyOp
         // Crear el directorio de backup con timestamp para esta sesión.
         string backupDir = Env.BackupDir + "_applySystemAction";
 
-        foreach (string entryInRepo in repoPaths)
+        foreach (string systemPath in repoPaths)
         {
-            string systemPath = "/" + Path.GetRelativePath(Env.SystemDir, entryInRepo);
+            if (!Directory.Exists(systemPath))
+                Shell.Run("mkdir", $"-p \"{systemPath}\"", asSudo: true);
 
-            if (Directory.Exists(entryInRepo))
+            string path = systemPath;
+
+            if (path.StartsWith(Env.SystemDir))
+                path = path.Substring(Env.SystemDir.Length);
+
+            string relative = path.TrimStart('/');
+            string sourcePath = Path.Combine(Env.SystemDir, relative);
+
+            if (Directory.Exists(sourcePath))
             {
                 // Backup de cada archivo dentro
-                foreach (string file in Directory.GetFiles(entryInRepo, "*", SearchOption.AllDirectories))
+                foreach (string file in Directory.GetFiles(systemPath, "*", SearchOption.AllDirectories))
                 {
-                    string dest = "/" + Path.GetRelativePath(Env.SystemDir, file);
-                    if (!Backup.BackupSystemPath(dest, backupDir))
+                    if (!Backup.BackupSystemPath(file, backupDir))
                         return;
                 }
 
                 // Symlinks individuales
-                var created = Shell.SymlinkDirectoryContents(entryInRepo, systemPath, asSudo: true);
+                var created = Shell.SymlinkDirectoryContents(sourcePath, systemPath, asSudo: true);
                 foreach (string dest in created!)
                     Summary.TrackOk($"symlink sistema: {dest}");
 
             }
-            else if (File.Exists(entryInRepo))
+            else if (File.Exists(sourcePath))
             {
                 if (!Backup.BackupSystemPath(systemPath, backupDir))
                     return;
 
-                if (Shell.Symlink(entryInRepo, systemPath, true).Ok)
+                if (Shell.Symlink(sourcePath, systemPath, true).Ok)
                     Summary.TrackOk($"symlink sistema: {systemPath}");
                 else
                     Summary.TrackErr($"symlink sistema falló: {systemPath}");
-
             }
             else
-                Summary.TrackErr($"No se encontró '{systemPath}' en el repo.");
+                Summary.TrackErr($"No existe: {systemPath}");
 
         }
     }
