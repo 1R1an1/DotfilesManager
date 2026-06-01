@@ -99,14 +99,12 @@ internal static class Backup
             Summary.TrackErr($"La ruta debe ser absoluta: {absolutePath}");
             return false;
         }
+        System.Console.WriteLine(absolutePath);
 
-        // Validar que no esté dentro del home
-        if (absolutePath.StartsWith(Env.HomeDir))
-        {
-            Summary.TrackErr($"La ruta no puede estar dentro del home, usá BackupHomeFile: {absolutePath}");
-            return false;
-        }
-
+        // Validar que no esté dentro de los dotfiles
+        if (absolutePath.StartsWith(Env.SystemDir))
+            absolutePath = absolutePath.Substring(Env.SystemDir.Length);
+        System.Console.WriteLine(absolutePath);
         if (!File.Exists(absolutePath) && !Directory.Exists(absolutePath))
         {
             Summary.TrackErr($"No existe: {absolutePath}");

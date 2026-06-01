@@ -100,6 +100,16 @@ internal static class ApplyOp
             return;
         }
 
+        selected = selected.Select(repoPath =>
+        {
+            // Si la ruta está dentro de Env.SystemDir, extraer la parte relativa
+            if (repoPath.StartsWith(Env.SystemDir))
+                return repoPath.Substring(Env.SystemDir.Length);
+
+            // Si no (no debería pasar), devolver tal cual
+            return repoPath;
+        }).ToArray();
+
         // Delegar en el método sin UI
         ApplySystem(selected);
     }
@@ -171,9 +181,8 @@ internal static class ApplyOp
                     if (!Backup.BackupSystemPath(file, backupDir))
                         return;
                 }
-
                 // Symlinks individuales
-                var created = Shell.SymlinkDirectoryContents(sourcePath, systemPath, asSudo: true);
+                var (created, _, _) = Shell.SymlinkDirectoryContents(sourcePath, systemPath, asSudo: true);
                 foreach (string dest in created!)
                     Summary.TrackOk($"symlink sistema: {dest}");
 

@@ -169,7 +169,7 @@ internal static class AddOp
 
         if (Directory.Exists(destInRepo))
         {
-            var created = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
+            var (created, _, _) = Shell.SymlinkDirectoryContents(destInRepo, path, asSudo: true);
             foreach (string dest in created!)
                 Summary.TrackOk($"Symlink creado en: {dest}");
         }
