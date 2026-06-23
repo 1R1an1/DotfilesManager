@@ -54,3 +54,8 @@ dmanager -h
 ⚠️ **Importante:** Antes de abrir un reporte, asegurate de hacer un `git pull` y volver a compilar para verificar que estás usando la **última versión** disponible del proyecto.
 
 Si el error persiste, encontrás un bug o querés proponer una mejora, abrí un [Issue](https://github.com/1R1an1/DotfilesManager/issues)
+
+---
+
+## 📄 Licencia
+Este proyecto está bajo la licencia **Mozilla Public License 2.0 (MPL-2.0)**.
